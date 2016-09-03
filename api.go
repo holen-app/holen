@@ -50,10 +50,15 @@ func loadStrategy(m Manifest, s, v string) (Strategy, error) {
 	versions := strategy["versions"].([]interface{})
 
 	if len(v) > 0 {
+		found := false
 		for _, verInfo := range versions {
 			if verInfo.(map[interface{}]interface{})["version"] == v {
 				selectedVersion = verInfo.(map[interface{}]interface{})
+				found = true
 			}
+		}
+		if !found {
+			return strat, fmt.Errorf("Unable to find version %s", v)
 		}
 	} else {
 		selectedVersion = versions[0].(map[interface{}]interface{})
