@@ -15,6 +15,12 @@
 			"revisionTime": "2016-05-04T02:26:26Z"
 		},
 		{
+			"checksumSHA1": "YRD335tkMvgHzkfbfveMUpsE3Bw=",
+			"path": "gopkg.in/ini.v1",
+			"revision": "6e4869b434bd001f6983749881c7ead3545887d8",
+			"revisionTime": "2016-08-27T06:11:18Z"
+		},
+		{
 			"checksumSHA1": "yV+2de12Q/t09hBGYGKEOFr1/zc=",
 			"path": "gopkg.in/yaml.v2",
 			"revision": "e4d366fc3c7938e2958e662b4258c7a89e1f0e3e",
