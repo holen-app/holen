@@ -8,9 +8,21 @@ import (
 	"path"
 	"strings"
 
-	ini "gopkg.in/ini.v1"
+	"github.com/Sirupsen/logrus"
+	flags "github.com/jessevdk/go-flags"
+
 	yaml "gopkg.in/yaml.v2"
 )
+
+type GlobalOptions struct {
+	Quiet   func() `short:"q" long:"quiet" description:"Show as little information as possible."`
+	Verbose func() `short:"v" long:"verbose" description:"Show verbose debug information."`
+	LogJSON func() `short:"j" long:"log-json" description:"Log in JSON format."`
+}
+
+var globalOptions GlobalOptions
+var parser = flags.NewParser(&globalOptions, flags.Default)
+var originalArgs []string
 
 func main() {
 	m := Manifest{}
@@ -18,30 +30,24 @@ func main() {
 	basename := path.Base(os.Args[0])
 
 	if basename == "holen" || basename == "hln" {
-		fmt.Println("TODO: parsing holen args")
-		// cfg, err := ini.LooseLoad("/home/nate/.holenconfig")
-		// if err != nil {
-		// 	log.Fatalf("error: %v", err)
-		// }
-		// cfg.Section("strategy").NewKey("preferred", "docker")
-		// // cfg.Section("test").DeleteKey("name2")
-		// // if len(cfg.Section("test").Keys()) == 0 {
-		// // 	cfg.DeleteSection("test")
-		// // }
-		// cfg.SaveToIndent("/home/nate/.holenconfig", "    ")
-		// // fmt.Println(cfg.Section("test").Key("name").String())
 
-		cfg, err := ini.LooseLoad("/etc/holenconfig", "/home/nate/.holenconfig", "holenconfig")
-		if err != nil {
-			log.Fatalf("error: %v", err)
+		// configure logging
+		logrus.SetLevel(logrus.InfoLevel)
+		logrus.SetFormatter(&logrus.TextFormatter{FullTimestamp: true})
+
+		// options to change log level
+		globalOptions.Quiet = func() {
+			logrus.SetLevel(logrus.WarnLevel)
 		}
-		// fmt.Println(cfg)
-		for _, section := range cfg.Sections() {
-			if len(section.Keys()) > 0 {
-				for _, key := range section.Keys() {
-					fmt.Printf("%s.%s = %s\n", section.Name(), key.Name(), key.Value())
-				}
-			}
+		globalOptions.Verbose = func() {
+			logrus.SetLevel(logrus.DebugLevel)
+		}
+		globalOptions.LogJSON = func() {
+			logrus.SetFormatter(&logrus.JSONFormatter{})
+		}
+		originalArgs = os.Args
+		if _, err := parser.Parse(); err != nil {
+			os.Exit(1)
 		}
 	} else {
 
