@@ -1,6 +1,9 @@
 package main
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
 
 type ConfigCommand struct {
 	System bool `short:"s" long:"system" description:"Modify system level configuration."`
@@ -37,12 +40,14 @@ func (x *ConfigCommand) Execute(args []string) error {
 	} else {
 		if len(configCommand.Args.Value) > 0 {
 			return conf.Set(configCommand.System, configCommand.Args.Key, configCommand.Args.Value)
-		} else {
+		} else if len(configCommand.Args.Key) > 0 {
 			val, err := conf.Get(configCommand.Args.Key)
 			if err != nil {
 				return err
 			}
 			fmt.Println(val)
+		} else {
+			return errors.New("Specify a key and optional value to set or pass --help for more information")
 		}
 	}
 
