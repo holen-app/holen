@@ -116,7 +116,7 @@ func splitKey(key string) (string, string) {
 	return parts[0], parts[1]
 }
 
-func NewDefaultConfigClient() (ConfigClient, error) {
+func NewDefaultConfigClient() (*RealConfigClient, error) {
 	var baseDir string
 	if xdgConfigHome := os.Getenv("XDG_CONFIG_HOME"); len(xdgConfigHome) > 0 {
 		baseDir = filepath.Join(xdgConfigHome, "holen")
@@ -128,8 +128,14 @@ func NewDefaultConfigClient() (ConfigClient, error) {
 		baseDir = filepath.Join(home, ".config", "holen")
 		os.MkdirAll(baseDir, 0755)
 	}
+
+	systemHome := "/etc"
+	if holenSystemEnv := os.Getenv("HOLEN_SYSTEM_CONFIG"); len(holenSystemEnv) > 0 {
+		systemHome = holenSystemEnv
+	}
+
 	configClient := RealConfigClient{
-		systemConfig: "/etc/holenconfig",
+		systemConfig: filepath.Join(systemHome, "holenconfig"),
 		userConfig:   filepath.Join(baseDir, "config"),
 	}
 
