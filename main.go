@@ -2,16 +2,11 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
-	"log"
 	"os"
 	"path"
-	"strings"
 
 	"github.com/Sirupsen/logrus"
 	flags "github.com/jessevdk/go-flags"
-
-	yaml "gopkg.in/yaml.v2"
 )
 
 type GlobalOptions struct {
@@ -25,8 +20,6 @@ var parser = flags.NewParser(&globalOptions, flags.Default)
 var originalArgs []string
 
 func main() {
-	m := Manifest{}
-
 	basename := path.Base(os.Args[0])
 
 	if basename == "holen" || basename == "hln" {
@@ -51,33 +44,12 @@ func main() {
 		}
 	} else {
 
-		parts := strings.Split(basename, "--")
-		version := ""
-		if len(parts) > 1 {
-			version = parts[1]
-		}
-
-		// fmt.Println(parts)
-		file := fmt.Sprintf("manifests/%s.yaml", parts[0])
-		// fmt.Println(file)
-		data, err := ioutil.ReadFile(file)
+		conf, err := NewDefaultConfigClient()
 		if err != nil {
-			log.Fatalf("error: %v", err)
+			fmt.Println(err)
+			os.Exit(1)
 		}
 
-		err = yaml.Unmarshal([]byte(data), &m)
-		if err != nil {
-			log.Fatalf("error: %v", err)
-		}
-
-		// load this from config or by detecting environment
-		defaultStrategy := "docker"
-
-		strategy, err := loadStrategy(m, defaultStrategy, version)
-		if err != nil {
-			log.Fatalf("error: %v", err)
-		}
-
-		fmt.Printf("%v\n", strategy)
+		RunUtility(conf, basename)
 	}
 }

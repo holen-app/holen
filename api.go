@@ -1,8 +1,13 @@
 package main
 
 import (
-	"errors"
 	"fmt"
+	"io/ioutil"
+	"log"
+	"strings"
+
+	"github.com/pkg/errors"
+	yaml "gopkg.in/yaml.v2"
 )
 
 type Strategy interface {
@@ -34,6 +39,42 @@ func (rsc DockerStrategy) Actions() error {
 }
 
 func (rsc BinaryStrategy) Actions() error {
+	return nil
+}
+
+func RunUtility(conf ConfigGetter, name string) error {
+
+	m := Manifest{}
+
+	parts := strings.Split(name, "--")
+	version := ""
+	if len(parts) > 1 {
+		version = parts[1]
+	}
+
+	// fmt.Println(parts)
+	file := fmt.Sprintf("manifests/%s.yaml", parts[0])
+	// fmt.Println(file)
+	data, err := ioutil.ReadFile(file)
+	if err != nil {
+		log.Fatalf("error: %v", err)
+	}
+
+	err = yaml.Unmarshal([]byte(data), &m)
+	if err != nil {
+		log.Fatalf("error: %v", err)
+	}
+
+	// load this from config or by detecting environment
+	defaultStrategy := "docker"
+
+	strategy, err := loadStrategy(m, defaultStrategy, version)
+	if err != nil {
+		return errors.Wrap(err, "unable to load strategy")
+	}
+
+	fmt.Printf("%v\n", strategy)
+
 	return nil
 }
 

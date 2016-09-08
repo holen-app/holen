@@ -16,6 +16,10 @@ type ConfigClient interface {
 	Get(key string) (string, error)
 }
 
+type ConfigGetter interface {
+	Get(key string) (string, error)
+}
+
 type RealConfigClient struct {
 	systemConfig string
 	userConfig   string
