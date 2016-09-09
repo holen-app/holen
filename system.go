@@ -22,19 +22,34 @@ func (ll LogrusLogger) Warnf(str string, args ...interface{}) {
 	logrus.Warnf(str, args...)
 }
 
-type System struct {
-	Logger
-	ConfigGetter
+type Downloader interface {
+	DownloadFile(string, string) error
+	PullDockerImage(string) error
 }
 
-func NewSystem() (*System, error) {
-	conf, err := NewDefaultConfigClient()
-	if err != nil {
-		return nil, err
-	}
+type DefaultDownloader struct {
+	Logger
+	Runner
+}
 
-	return &System{
-		Logger:       &LogrusLogger{},
-		ConfigGetter: conf,
-	}, nil
+func (dd DefaultDownloader) DownloadFile(url, path string) error {
+	dd.Infof("Downloading file from %s to %s", url, path)
+	return nil
+}
+
+func (dd DefaultDownloader) PullDockerImage(image string) error {
+	return dd.RunCommand("docker", []string{"pull", image})
+}
+
+type Runner interface {
+	RunCommand(string, []string) error
+}
+
+type DefaultRunner struct {
+	Logger
+}
+
+func (dr DefaultRunner) RunCommand(cmd string, args []string) error {
+	dr.Infof("Running command %s with args %v", cmd, args)
+	return nil
 }

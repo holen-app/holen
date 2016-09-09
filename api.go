@@ -5,15 +5,16 @@ import (
 	"io/ioutil"
 	"strings"
 
+	"github.com/kr/pretty"
 	"github.com/pkg/errors"
 	yaml "gopkg.in/yaml.v2"
 )
 
 type Strategy interface {
-	Actions() error
+	Run() error
 }
 
-type DockerStrategy struct {
+type DockerData struct {
 	Version     string            `yaml:"version"`
 	Image       string            `yaml:"image"`
 	MountPwd    bool              `yaml:"mount_pwd"`
@@ -22,10 +23,26 @@ type DockerStrategy struct {
 	ArchMap     map[string]string `yaml:"arch_map"`
 }
 
-type BinaryStrategy struct {
+type DockerStrategy struct {
+	Logger
+	ConfigGetter
+	Downloader
+	Runner
+	Data DockerData
+}
+
+type BinaryData struct {
 	Version string            `yaml:"version"`
 	BaseUrl string            `yaml:"base_url"`
 	ArchMap map[string]string `yaml:"arch_map"`
+}
+
+type BinaryStrategy struct {
+	Logger
+	ConfigGetter
+	Downloader
+	Runner
+	Data BinaryData
 }
 
 type Manifest struct {
@@ -33,15 +50,30 @@ type Manifest struct {
 	Strategies map[string]map[interface{}]interface{}
 }
 
-func (rsc DockerStrategy) Actions() error {
+func (ds DockerStrategy) Run() error {
+
+	// TODO: template Image
+
+	var err error
+
+	err = ds.PullDockerImage(ds.Data.Image)
+	if err != nil {
+		return errors.Wrap(err, "can't pull image")
+	}
+
+	ds.RunCommand("docker", []string{"run", ds.Data.Image})
+	if err != nil {
+		return errors.Wrap(err, "can't run image")
+	}
+
 	return nil
 }
 
-func (rsc BinaryStrategy) Actions() error {
+func (bs BinaryStrategy) Run() error {
 	return nil
 }
 
-func RunUtility(s *System, name string) error {
+func RunUtility(logger Logger, name string) error {
 
 	m := Manifest{}
 
@@ -51,10 +83,10 @@ func RunUtility(s *System, name string) error {
 		version = parts[1]
 	}
 
-	s.Logger.Debugf("parts of the utility: %s", parts)
+	logger.Infof("parts of the utility: %s", parts)
 	file := fmt.Sprintf("manifests/%s.yaml", parts[0])
 
-	s.Logger.Debugf("attemting to load: %s", file)
+	logger.Infof("attemting to load: %s", file)
 	data, err := ioutil.ReadFile(file)
 	if err != nil {
 		return errors.Wrap(err, "problems with reading file")
@@ -68,17 +100,16 @@ func RunUtility(s *System, name string) error {
 	// load this from config or by detecting environment
 	defaultStrategy := "docker"
 
-	strategy, err := loadStrategy(m, defaultStrategy, version)
+	strategy, err := loadStrategy(logger, m, defaultStrategy, version)
 	if err != nil {
 		return errors.Wrap(err, "unable to load strategy")
 	}
 
-	fmt.Printf("%v\n", strategy)
-
-	return nil
+	fmt.Printf("%# v\n", pretty.Formatter(strategy))
+	return strategy.Run()
 }
 
-func loadStrategy(m Manifest, s, v string) (Strategy, error) {
+func loadStrategy(logger Logger, m Manifest, s, v string) (Strategy, error) {
 
 	var strat Strategy
 	strategy, strategy_ok := m.Strategies[s]
@@ -122,6 +153,13 @@ func loadStrategy(m Manifest, s, v string) (Strategy, error) {
 		}
 	}
 
+	conf, err := NewDefaultConfigClient()
+	if err != nil {
+		return nil, err
+	}
+
+	runner := &DefaultRunner{logger}
+
 	// handle strategy specific keys
 	if s == "docker" {
 		mount_pwd, mount_pwd_ok := final["mount_pwd"]
@@ -134,12 +172,18 @@ func loadStrategy(m Manifest, s, v string) (Strategy, error) {
 		}
 
 		strat = DockerStrategy{
-			Version:     final["version"].(string),
-			Image:       image.(string),
-			MountPwd:    mount_pwd_ok && mount_pwd.(bool),
-			DockerConn:  docker_conn_ok && docker_conn.(bool),
-			Interactive: !interactive_ok || interactive.(bool),
-			ArchMap:     arch_map,
+			Logger:       logger,
+			ConfigGetter: conf,
+			Downloader:   &DefaultDownloader{logger, runner},
+			Runner:       runner,
+			Data: DockerData{
+				Version:     final["version"].(string),
+				Image:       image.(string),
+				MountPwd:    mount_pwd_ok && mount_pwd.(bool),
+				DockerConn:  docker_conn_ok && docker_conn.(bool),
+				Interactive: !interactive_ok || interactive.(bool),
+				ArchMap:     arch_map,
+			},
 		}
 	} else if s == "binary" {
 		base_url, base_url_ok := final["base_url"]
@@ -149,9 +193,15 @@ func loadStrategy(m Manifest, s, v string) (Strategy, error) {
 		}
 
 		strat = BinaryStrategy{
-			Version: final["version"].(string),
-			BaseUrl: base_url.(string),
-			ArchMap: arch_map,
+			Logger:       logger,
+			ConfigGetter: conf,
+			Downloader:   &DefaultDownloader{logger, runner},
+			Runner:       runner,
+			Data: BinaryData{
+				Version: final["version"].(string),
+				BaseUrl: base_url.(string),
+				ArchMap: arch_map,
+			},
 		}
 	}
 

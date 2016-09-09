@@ -1,13 +1,11 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"path"
 
 	"github.com/Sirupsen/logrus"
 	flags "github.com/jessevdk/go-flags"
-	"github.com/kr/pretty"
 )
 
 type GlobalOptions struct {
@@ -45,13 +43,7 @@ func main() {
 		}
 	} else {
 
-		s, err := NewSystem()
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-		fmt.Printf("%# v\n", pretty.Formatter(s))
-
-		RunUtility(s, basename)
+		logger := &LogrusLogger{}
+		RunUtility(logger, basename)
 	}
 }
