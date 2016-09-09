@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
-	"log"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -42,7 +41,7 @@ func (rsc BinaryStrategy) Actions() error {
 	return nil
 }
 
-func RunUtility(conf ConfigGetter, name string) error {
+func RunUtility(s *System, name string) error {
 
 	m := Manifest{}
 
@@ -52,17 +51,18 @@ func RunUtility(conf ConfigGetter, name string) error {
 		version = parts[1]
 	}
 
-	// fmt.Println(parts)
+	s.Logger.Debugf("parts of the utility: %s", parts)
 	file := fmt.Sprintf("manifests/%s.yaml", parts[0])
-	// fmt.Println(file)
+
+	s.Logger.Debugf("attemting to load: %s", file)
 	data, err := ioutil.ReadFile(file)
 	if err != nil {
-		log.Fatalf("error: %v", err)
+		return errors.Wrap(err, "problems with reading file")
 	}
 
 	err = yaml.Unmarshal([]byte(data), &m)
 	if err != nil {
-		log.Fatalf("error: %v", err)
+		return errors.Wrap(err, "problems with unmarshal")
 	}
 
 	// load this from config or by detecting environment
