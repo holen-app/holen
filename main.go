@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"path"
 
@@ -42,8 +43,10 @@ func main() {
 			os.Exit(1)
 		}
 	} else {
-
-		logger := &LogrusLogger{}
-		RunUtility(logger, basename)
+		err := RunUtility(basename)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
 	}
 }

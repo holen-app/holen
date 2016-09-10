@@ -2,12 +2,9 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"strings"
 
-	"github.com/kr/pretty"
 	"github.com/pkg/errors"
-	yaml "gopkg.in/yaml.v2"
 )
 
 type Strategy interface {
@@ -45,9 +42,117 @@ type BinaryStrategy struct {
 	Data BinaryData
 }
 
-type Manifest struct {
+type ManifestData struct {
 	Name       string `yaml:"name"`
 	Strategies map[string]map[interface{}]interface{}
+}
+
+type Manifest struct {
+	Logger
+	ConfigGetter
+	Data ManifestData
+}
+
+func (m *Manifest) LoadStrategy(utility NameVer) (Strategy, error) {
+
+	// load this from config or by detecting environment
+	defaultStrategy := "docker"
+
+	var strat Strategy
+	strategy, strategy_ok := m.Data.Strategies[defaultStrategy]
+
+	if !strategy_ok {
+		return strat, fmt.Errorf("Strategy %s not found.", defaultStrategy)
+	}
+
+	var selectedVersion map[interface{}]interface{}
+	versions := strategy["versions"].([]interface{})
+
+	if len(utility.Version) > 0 {
+		found := false
+		for _, verInfo := range versions {
+			if verInfo.(map[interface{}]interface{})["version"] == utility.Version {
+				selectedVersion = verInfo.(map[interface{}]interface{})
+				found = true
+			}
+		}
+		if !found {
+			return strat, fmt.Errorf("Unable to find version %s", utility.Version)
+		}
+	} else {
+		selectedVersion = versions[0].(map[interface{}]interface{})
+	}
+
+	delete(strategy, "versions")
+	// fmt.Printf("%v\n", strategy)
+	// fmt.Printf("%v\n", versions)
+	// fmt.Printf("%v\n", selectedVersion)
+	final := mergeMaps(strategy, selectedVersion)
+	// fmt.Printf("%v\n", final)
+
+	// handle common keys
+	orig_arch_map, arch_map_ok := final["arch_map"]
+
+	arch_map := make(map[string]string)
+	if arch_map_ok {
+		for k, v := range orig_arch_map.(map[interface{}]interface{}) {
+			arch_map[k.(string)] = v.(string)
+		}
+	}
+
+	conf, err := NewDefaultConfigClient()
+	if err != nil {
+		return strat, err
+	}
+
+	runner := &DefaultRunner{m.Logger}
+
+	// handle strategy specific keys
+	if defaultStrategy == "docker" {
+		mount_pwd, mount_pwd_ok := final["mount_pwd"]
+		docker_conn, docker_conn_ok := final["docker_conn"]
+		interactive, interactive_ok := final["interactive"]
+		image, image_ok := final["image"]
+
+		if !image_ok {
+			return strat, errors.New("At least 'image' needed for docker strategy to work")
+		}
+
+		strat = DockerStrategy{
+			Logger:       m.Logger,
+			ConfigGetter: conf,
+			Downloader:   &DefaultDownloader{m.Logger, runner},
+			Runner:       runner,
+			Data: DockerData{
+				Version:     final["version"].(string),
+				Image:       image.(string),
+				MountPwd:    mount_pwd_ok && mount_pwd.(bool),
+				DockerConn:  docker_conn_ok && docker_conn.(bool),
+				Interactive: !interactive_ok || interactive.(bool),
+				ArchMap:     arch_map,
+			},
+		}
+	} else if defaultStrategy == "binary" {
+		base_url, base_url_ok := final["base_url"]
+
+		if !base_url_ok {
+			return strat, errors.New("At least 'base_url' needed for binary strategy to work")
+		}
+
+		strat = BinaryStrategy{
+			Logger:       m.Logger,
+			ConfigGetter: conf,
+			Downloader:   &DefaultDownloader{m.Logger, runner},
+			Runner:       runner,
+			Data: BinaryData{
+				Version: final["version"].(string),
+				BaseUrl: base_url.(string),
+				ArchMap: arch_map,
+			},
+		}
+	}
+
+	return strat, nil
 }
 
 func (ds DockerStrategy) Run() error {
@@ -73,141 +178,6 @@ func (bs BinaryStrategy) Run() error {
 	return nil
 }
 
-func RunUtility(logger Logger, name string) error {
-
-	m := Manifest{}
-
-	parts := strings.Split(name, "--")
-	version := ""
-	if len(parts) > 1 {
-		version = parts[1]
-	}
-
-	logger.Infof("parts of the utility: %s", parts)
-	file := fmt.Sprintf("manifests/%s.yaml", parts[0])
-
-	logger.Infof("attemting to load: %s", file)
-	data, err := ioutil.ReadFile(file)
-	if err != nil {
-		return errors.Wrap(err, "problems with reading file")
-	}
-
-	err = yaml.Unmarshal([]byte(data), &m)
-	if err != nil {
-		return errors.Wrap(err, "problems with unmarshal")
-	}
-
-	// load this from config or by detecting environment
-	defaultStrategy := "docker"
-
-	strategy, err := loadStrategy(logger, m, defaultStrategy, version)
-	if err != nil {
-		return errors.Wrap(err, "unable to load strategy")
-	}
-
-	fmt.Printf("%# v\n", pretty.Formatter(strategy))
-	return strategy.Run()
-}
-
-func loadStrategy(logger Logger, m Manifest, s, v string) (Strategy, error) {
-
-	var strat Strategy
-	strategy, strategy_ok := m.Strategies[s]
-
-	if !strategy_ok {
-		return strat, fmt.Errorf("Strategy %s not found.", s)
-	}
-
-	var selectedVersion map[interface{}]interface{}
-	versions := strategy["versions"].([]interface{})
-
-	if len(v) > 0 {
-		found := false
-		for _, verInfo := range versions {
-			if verInfo.(map[interface{}]interface{})["version"] == v {
-				selectedVersion = verInfo.(map[interface{}]interface{})
-				found = true
-			}
-		}
-		if !found {
-			return strat, fmt.Errorf("Unable to find version %s", v)
-		}
-	} else {
-		selectedVersion = versions[0].(map[interface{}]interface{})
-	}
-
-	delete(strategy, "versions")
-	// fmt.Printf("%v\n", strategy)
-	// fmt.Printf("%v\n", versions)
-	// fmt.Printf("%v\n", selectedVersion)
-	final := mergeMaps(strategy, selectedVersion)
-	// fmt.Printf("%v\n", final)
-
-	// handle common keys
-	orig_arch_map, arch_map_ok := final["arch_map"]
-
-	arch_map := make(map[string]string)
-	if arch_map_ok {
-		for k, v := range orig_arch_map.(map[interface{}]interface{}) {
-			arch_map[k.(string)] = v.(string)
-		}
-	}
-
-	conf, err := NewDefaultConfigClient()
-	if err != nil {
-		return nil, err
-	}
-
-	runner := &DefaultRunner{logger}
-
-	// handle strategy specific keys
-	if s == "docker" {
-		mount_pwd, mount_pwd_ok := final["mount_pwd"]
-		docker_conn, docker_conn_ok := final["docker_conn"]
-		interactive, interactive_ok := final["interactive"]
-		image, image_ok := final["image"]
-
-		if !image_ok {
-			return strat, errors.New("At least 'image' needed for docker strategy to work")
-		}
-
-		strat = DockerStrategy{
-			Logger:       logger,
-			ConfigGetter: conf,
-			Downloader:   &DefaultDownloader{logger, runner},
-			Runner:       runner,
-			Data: DockerData{
-				Version:     final["version"].(string),
-				Image:       image.(string),
-				MountPwd:    mount_pwd_ok && mount_pwd.(bool),
-				DockerConn:  docker_conn_ok && docker_conn.(bool),
-				Interactive: !interactive_ok || interactive.(bool),
-				ArchMap:     arch_map,
-			},
-		}
-	} else if s == "binary" {
-		base_url, base_url_ok := final["base_url"]
-
-		if !base_url_ok {
-			return strat, errors.New("At least 'base_url' needed for binary strategy to work")
-		}
-
-		strat = BinaryStrategy{
-			Logger:       logger,
-			ConfigGetter: conf,
-			Downloader:   &DefaultDownloader{logger, runner},
-			Runner:       runner,
-			Data: BinaryData{
-				Version: final["version"].(string),
-				BaseUrl: base_url.(string),
-				ArchMap: arch_map,
-			},
-		}
-	}
-
-	return strat, nil
-}
-
 func mergeMaps(m1, m2 map[interface{}]interface{}) map[interface{}]interface{} {
 	for k, _ := range m1 {
 		if vv, ok := m2[k]; ok {
@@ -220,4 +190,42 @@ func mergeMaps(m1, m2 map[interface{}]interface{}) map[interface{}]interface{} {
 	}
 
 	return m1
+}
+
+type NameVer struct {
+	Name    string
+	Version string
+}
+
+func ParseName(utility string) NameVer {
+	parts := strings.Split(utility, "--")
+	version := ""
+	if len(parts) > 1 {
+		version = parts[1]
+	}
+
+	return NameVer{parts[0], version}
+}
+
+func RunUtility(utility string) error {
+	manifestFinder, err := NewManifestFinder()
+	if err != nil {
+		return err
+	}
+
+	nameVer := ParseName(utility)
+
+	manifest, err := manifestFinder.Find(nameVer)
+	if err != nil {
+		return err
+	}
+	// fmt.Printf("manifest: %# v\n", pretty.Formatter(manifest))
+
+	strategy, err := manifest.LoadStrategy(nameVer)
+	if err != nil {
+		return err
+	}
+	// fmt.Printf("%# v\n", pretty.Formatter(strategy))
+
+	return strategy.Run()
 }
