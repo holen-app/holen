@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 
+	"github.com/kr/pretty"
 	"github.com/pkg/errors"
 	yaml "gopkg.in/yaml.v2"
 )
@@ -46,9 +47,12 @@ func (dmf DefaultManifestFinder) Find(utility NameVer) (*Manifest, error) {
 		return nil, errors.Wrap(err, "problems with unmarshal")
 	}
 
-	return &Manifest{
+	manifest := &Manifest{
 		Logger:       dmf.Logger,
 		ConfigGetter: dmf.ConfigGetter,
 		Data:         md,
-	}, nil
+	}
+	dmf.Debugf("manifest found: %# v\n", pretty.Formatter(manifest))
+
+	return manifest, nil
 }

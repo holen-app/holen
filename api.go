@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/kr/pretty"
 	"github.com/pkg/errors"
 )
 
@@ -152,6 +153,8 @@ func (m *Manifest) LoadStrategy(utility NameVer) (Strategy, error) {
 		}
 	}
 
+	m.Debugf("using strategy: %# v\n", pretty.Formatter(strat))
+
 	return strat, nil
 }
 
@@ -219,13 +222,11 @@ func RunUtility(utility string, args []string) error {
 	if err != nil {
 		return err
 	}
-	// fmt.Printf("manifest: %# v\n", pretty.Formatter(manifest))
 
 	strategy, err := manifest.LoadStrategy(nameVer)
 	if err != nil {
 		return err
 	}
-	// fmt.Printf("%# v\n", pretty.Formatter(strategy))
 
 	return strategy.Run(args)
 }
