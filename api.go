@@ -8,7 +8,7 @@ import (
 )
 
 type Strategy interface {
-	Run() error
+	Run([]string) error
 }
 
 type DockerData struct {
@@ -155,7 +155,7 @@ func (m *Manifest) LoadStrategy(utility NameVer) (Strategy, error) {
 	return strat, nil
 }
 
-func (ds DockerStrategy) Run() error {
+func (ds DockerStrategy) Run(args []string) error {
 
 	// TODO: template Image
 
@@ -166,7 +166,7 @@ func (ds DockerStrategy) Run() error {
 		return errors.Wrap(err, "can't pull image")
 	}
 
-	ds.RunCommand("docker", []string{"run", ds.Data.Image})
+	ds.RunCommand("docker", append([]string{"run", ds.Data.Image}, args...))
 	if err != nil {
 		return errors.Wrap(err, "can't run image")
 	}
@@ -174,7 +174,7 @@ func (ds DockerStrategy) Run() error {
 	return nil
 }
 
-func (bs BinaryStrategy) Run() error {
+func (bs BinaryStrategy) Run(args []string) error {
 	return nil
 }
 
@@ -207,7 +207,7 @@ func ParseName(utility string) NameVer {
 	return NameVer{parts[0], version}
 }
 
-func RunUtility(utility string) error {
+func RunUtility(utility string, args []string) error {
 	manifestFinder, err := NewManifestFinder()
 	if err != nil {
 		return err
@@ -227,5 +227,5 @@ func RunUtility(utility string) error {
 	}
 	// fmt.Printf("%# v\n", pretty.Formatter(strategy))
 
-	return strategy.Run()
+	return strategy.Run(args)
 }
