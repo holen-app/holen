@@ -121,6 +121,13 @@ func (m *Manifest) LoadStrategy(utility NameVer) (Strategy, error) {
 	}
 
 	runner := &DefaultRunner{m.Logger}
+	commonUtility := &StrategyCommon{
+		System:       &DefaultSystem{},
+		Logger:       m.Logger,
+		ConfigGetter: conf,
+		Downloader:   &DefaultDownloader{m.Logger, runner},
+		Runner:       runner,
+	}
 
 	// handle strategy specific keys
 	if defaultStrategy == "docker" {
@@ -134,10 +141,7 @@ func (m *Manifest) LoadStrategy(utility NameVer) (Strategy, error) {
 		}
 
 		strat = DockerStrategy{
-			Logger:       m.Logger,
-			ConfigGetter: conf,
-			Downloader:   &DefaultDownloader{m.Logger, runner},
-			Runner:       runner,
+			StrategyCommon: commonUtility,
 			Data: DockerData{
 				Version:     final["version"].(string),
 				Image:       image.(string),
@@ -155,10 +159,7 @@ func (m *Manifest) LoadStrategy(utility NameVer) (Strategy, error) {
 		}
 
 		strat = BinaryStrategy{
-			Logger:       m.Logger,
-			ConfigGetter: conf,
-			Downloader:   &DefaultDownloader{m.Logger, runner},
-			Runner:       runner,
+			StrategyCommon: commonUtility,
 			Data: BinaryData{
 				Version: final["version"].(string),
 				BaseUrl: base_url.(string),

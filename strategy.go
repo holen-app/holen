@@ -2,6 +2,24 @@ package main
 
 import "github.com/pkg/errors"
 
+type StrategyCommon struct {
+	System
+	Logger
+	ConfigGetter
+	Downloader
+	Runner
+}
+
+func (sc *StrategyCommon) Templater(version string, archMap map[string]string, system System) Templater {
+	// TODO: extract MappedArch
+	return Templater{
+		Version:    version,
+		OS:         system.OS(),
+		Arch:       system.Arch(),
+		MappedArch: "test",
+	}
+}
+
 type Strategy interface {
 	Run([]string) error
 }
@@ -16,10 +34,7 @@ type DockerData struct {
 }
 
 type DockerStrategy struct {
-	Logger
-	ConfigGetter
-	Downloader
-	Runner
+	*StrategyCommon
 	Data DockerData
 }
 
@@ -30,10 +45,7 @@ type BinaryData struct {
 }
 
 type BinaryStrategy struct {
-	Logger
-	ConfigGetter
-	Downloader
-	Runner
+	*StrategyCommon
 	Data BinaryData
 }
 
@@ -43,12 +55,18 @@ func (ds DockerStrategy) Run(args []string) error {
 
 	var err error
 
-	err = ds.PullDockerImage(ds.Data.Image)
+	temp := ds.Templater(ds.Data.Version, ds.Data.ArchMap, ds.System)
+	image, err := temp.Template(ds.Data.Image)
+	if err != nil {
+		return errors.Wrap(err, "unable to template image name")
+	}
+
+	err = ds.PullDockerImage(image)
 	if err != nil {
 		return errors.Wrap(err, "can't pull image")
 	}
 
-	ds.RunCommand("docker", append([]string{"run", ds.Data.Image}, args...))
+	ds.RunCommand("docker", append([]string{"run", image}, args...))
 	if err != nil {
 		return errors.Wrap(err, "can't run image")
 	}

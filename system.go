@@ -1,6 +1,25 @@
 package main
 
-import "github.com/Sirupsen/logrus"
+import (
+	"runtime"
+
+	"github.com/Sirupsen/logrus"
+)
+
+type System interface {
+	OS() string
+	Arch() string
+}
+
+type DefaultSystem struct{}
+
+func (ds DefaultSystem) OS() string {
+	return runtime.GOOS
+}
+
+func (ds DefaultSystem) Arch() string {
+	return runtime.GOARCH
+}
 
 type Logger interface {
 	Debugf(string, ...interface{})
