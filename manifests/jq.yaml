@@ -1,0 +1,18 @@
+--- # jq
+name: Lightweight and flexible command-line JSON processor
+strategies:
+    binary:
+        base_url: https://github.com/stedolan/jq/releases/download/jq-{{.Version}}/jq-{{.MappedArch}}
+        arch_map:
+            windows_amd64: win64.exe
+            linux_amd64: linux64
+            darwin_amd64: osx-amd64
+        versions:
+          - version: '1.5'
+          - version: '1.4'
+            arch_map:
+                windows_amd64: win64.exe
+                linux_amd64: linux-x86_64
+                darwin_amd64: osx-x86_64
+
+...
