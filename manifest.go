@@ -52,7 +52,7 @@ func (dmf DefaultManifestFinder) Find(utility NameVer) (*Manifest, error) {
 		ConfigGetter: dmf.ConfigGetter,
 		Data:         md,
 	}
-	dmf.Debugf("manifest found: %# v\n", pretty.Formatter(manifest))
+	dmf.Debugf("manifest found: %# v", pretty.Formatter(manifest))
 
 	return manifest, nil
 }
@@ -168,7 +168,7 @@ func (m *Manifest) LoadStrategy(utility NameVer) (Strategy, error) {
 		}
 	}
 
-	m.Debugf("using strategy: %# v\n", pretty.Formatter(strat))
+	m.Debugf("using strategy: %# v", pretty.Formatter(strat))
 
 	return strat, nil
 }
