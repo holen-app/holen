@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
+	"strings"
 
 	"github.com/kr/pretty"
 	"github.com/pkg/errors"
@@ -70,18 +71,34 @@ type Manifest struct {
 
 func (m *Manifest) LoadStrategy(utility NameVer) (Strategy, error) {
 
-	// load this from config or by detecting environment
-	defaultStrategy := "docker"
-
 	var strat Strategy
-	strategy, strategy_ok := m.Data.Strategies[defaultStrategy]
 
-	if !strategy_ok {
-		return strat, fmt.Errorf("Strategy %s not found.", defaultStrategy)
+	// default
+	priority := "docker,binary"
+
+	if configPriority, err := m.Get("strategy.priority"); err == nil && len(configPriority) > 0 {
+		priority = configPriority
+	}
+
+	m.Debugf("Priority order: %s", priority)
+
+	var selectedStrategy string
+	var foundStrategy map[interface{}]interface{}
+	for _, try := range strings.Split(priority, ",") {
+		try = strings.TrimSpace(try)
+		if strategy, strategy_ok := m.Data.Strategies[try]; strategy_ok {
+			selectedStrategy = try
+			foundStrategy = strategy
+			break
+		}
+	}
+
+	if len(selectedStrategy) == 0 {
+		return strat, fmt.Errorf("No strategy found, tried %s.", priority)
 	}
 
 	var selectedVersion map[interface{}]interface{}
-	versions := strategy["versions"].([]interface{})
+	versions := foundStrategy["versions"].([]interface{})
 
 	if len(utility.Version) > 0 {
 		found := false
@@ -98,11 +115,11 @@ func (m *Manifest) LoadStrategy(utility NameVer) (Strategy, error) {
 		selectedVersion = versions[0].(map[interface{}]interface{})
 	}
 
-	delete(strategy, "versions")
+	delete(foundStrategy, "versions")
 	// fmt.Printf("%v\n", strategy)
 	// fmt.Printf("%v\n", versions)
 	// fmt.Printf("%v\n", selectedVersion)
-	final := mergeMaps(strategy, selectedVersion)
+	final := mergeMaps(foundStrategy, selectedVersion)
 	// fmt.Printf("%v\n", final)
 
 	// handle common keys
@@ -130,7 +147,7 @@ func (m *Manifest) LoadStrategy(utility NameVer) (Strategy, error) {
 	}
 
 	// handle strategy specific keys
-	if defaultStrategy == "docker" {
+	if selectedStrategy == "docker" {
 		mount_pwd, mount_pwd_ok := final["mount_pwd"]
 		docker_conn, docker_conn_ok := final["docker_conn"]
 		interactive, interactive_ok := final["interactive"]
@@ -151,7 +168,7 @@ func (m *Manifest) LoadStrategy(utility NameVer) (Strategy, error) {
 				ArchMap:     arch_map,
 			},
 		}
-	} else if defaultStrategy == "binary" {
+	} else if selectedStrategy == "binary" {
 		base_url, base_url_ok := final["base_url"]
 
 		if !base_url_ok {
