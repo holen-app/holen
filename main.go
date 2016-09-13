@@ -75,7 +75,7 @@ func main() {
 
 		err = RunUtility(basename, args)
 		if err != nil {
-			fmt.Println(err)
+			fmt.Printf("Unable to run %s: %s\n", basename, err)
 			os.Exit(1)
 		}
 	}
