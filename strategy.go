@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"path/filepath"
 
 	"github.com/kr/pretty"
 	"github.com/pkg/errors"
@@ -32,6 +33,8 @@ type Strategy interface {
 }
 
 type DockerData struct {
+	Name        string
+	Desc        string
 	Version     string            `yaml:"version"`
 	Image       string            `yaml:"image"`
 	MountPwd    bool              `yaml:"mount_pwd"`
@@ -46,6 +49,8 @@ type DockerStrategy struct {
 }
 
 type BinaryData struct {
+	Name    string
+	Desc    string
 	Version string            `yaml:"version"`
 	BaseUrl string            `yaml:"base_url"`
 	ArchMap map[string]string `yaml:"arch_map"`
@@ -87,12 +92,15 @@ func (bs BinaryStrategy) Run(args []string) error {
 		return errors.Wrap(err, "unable to template url")
 	}
 
-	err = bs.DownloadFile(url, "local/jq")
+	// TODO: figure out local path
+	localPath := filepath.Join("local", fmt.Sprintf("%s--%s", bs.Data.Name, bs.Data.Version))
+
+	err = bs.DownloadFile(url, localPath)
 	if err != nil {
 		return errors.Wrap(err, "can't download binary")
 	}
 
-	bs.RunCommand("local/jq", args)
+	bs.RunCommand(localPath, args)
 	if err != nil {
 		return errors.Wrap(err, "can't run image")
 	}

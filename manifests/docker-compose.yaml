@@ -1,5 +1,5 @@
 --- # docker-compose
-name: A tool for defining and running multi-container Docker applications.
+desc: A tool for defining and running multi-container Docker applications.
 strategies:
     docker:
         image: docker/compose:{{.Version}}

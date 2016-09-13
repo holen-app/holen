@@ -48,6 +48,8 @@ func (dmf DefaultManifestFinder) Find(utility NameVer) (*Manifest, error) {
 		return nil, errors.Wrap(err, "problems with unmarshal")
 	}
 
+	md.Name = utility.Name
+
 	manifest := &Manifest{
 		Logger:       dmf.Logger,
 		ConfigGetter: dmf.ConfigGetter,
@@ -59,7 +61,8 @@ func (dmf DefaultManifestFinder) Find(utility NameVer) (*Manifest, error) {
 }
 
 type ManifestData struct {
-	Name       string `yaml:"name"`
+	Name       string
+	Desc       string `yaml:"desc"`
 	Strategies map[string]map[interface{}]interface{}
 }
 
@@ -160,6 +163,8 @@ func (m *Manifest) LoadStrategy(utility NameVer) (Strategy, error) {
 		strat = DockerStrategy{
 			StrategyCommon: commonUtility,
 			Data: DockerData{
+				Name:        m.Data.Name,
+				Desc:        m.Data.Desc,
 				Version:     final["version"].(string),
 				Image:       image.(string),
 				MountPwd:    mount_pwd_ok && mount_pwd.(bool),
@@ -178,6 +183,8 @@ func (m *Manifest) LoadStrategy(utility NameVer) (Strategy, error) {
 		strat = BinaryStrategy{
 			StrategyCommon: commonUtility,
 			Data: BinaryData{
+				Name:    m.Data.Name,
+				Desc:    m.Data.Desc,
 				Version: final["version"].(string),
 				BaseUrl: base_url.(string),
 				ArchMap: arch_map,
