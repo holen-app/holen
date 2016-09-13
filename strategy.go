@@ -57,11 +57,6 @@ type BinaryStrategy struct {
 }
 
 func (ds DockerStrategy) Run(args []string) error {
-
-	// TODO: template Image
-
-	var err error
-
 	temp := ds.Templater(ds.Data.Version, ds.Data.ArchMap, ds.System)
 	ds.Debugf("templater: %# v", pretty.Formatter(temp))
 
@@ -84,8 +79,6 @@ func (ds DockerStrategy) Run(args []string) error {
 }
 
 func (bs BinaryStrategy) Run(args []string) error {
-	// var err error
-
 	temp := bs.Templater(bs.Data.Version, bs.Data.ArchMap, bs.System)
 	bs.Debugf("templater: %# v", pretty.Formatter(temp))
 
