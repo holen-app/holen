@@ -117,14 +117,23 @@ func (bs BinaryStrategy) Run(args []string) error {
 	}
 	localPath := filepath.Join(downloadPath, fmt.Sprintf("%s--%s", bs.Data.Name, bs.Data.Version))
 
-	err = bs.DownloadFile(url, localPath)
-	if err != nil {
-		return errors.Wrap(err, "can't download binary")
+	if _, err := os.Stat(localPath); os.IsNotExist(err) {
+		err = bs.DownloadFile(url, localPath)
+		if err != nil {
+			return errors.Wrap(err, "can't download binary")
+		}
+
+		err = os.Chmod(localPath, 0755)
+		if err != nil {
+			return errors.Wrap(err, "unable to chmod binary")
+		}
 	}
 
-	bs.RunCommand(localPath, args)
+	// TODO: checksum the binary
+
+	err = bs.RunCommand(localPath, args)
 	if err != nil {
-		return errors.Wrap(err, "can't run image")
+		return errors.Wrap(err, "can't run binary")
 	}
 
 	return nil

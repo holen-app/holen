@@ -1,9 +1,16 @@
 package main
 
 import (
+	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"os/exec"
 	"runtime"
+	"syscall"
 
 	"github.com/Sirupsen/logrus"
+	"github.com/pkg/errors"
 )
 
 type System interface {
@@ -53,6 +60,24 @@ type DefaultDownloader struct {
 
 func (dd DefaultDownloader) DownloadFile(url, path string) error {
 	dd.Infof("Downloading file from %s to %s", url, path)
+
+	res, err := http.Get(url)
+	if err != nil {
+		return errors.Wrap(err, fmt.Sprintf("unable to download %s", url))
+	}
+
+	out, err := os.Create(path)
+	defer out.Close()
+	if err != nil {
+		return errors.Wrap(err, fmt.Sprintf("unable to create file %s", path))
+	}
+
+	_, err = io.Copy(out, res.Body)
+	if err != nil {
+		return errors.Wrap(err, "unable to save downloaded file")
+	}
+	res.Body.Close()
+
 	return nil
 }
 
@@ -68,7 +93,29 @@ type DefaultRunner struct {
 	Logger
 }
 
-func (dr DefaultRunner) RunCommand(cmd string, args []string) error {
-	dr.Infof("Running command %s with args %v", cmd, args)
+func (dr DefaultRunner) RunCommand(command string, args []string) error {
+	dr.Infof("Running command %s with args %v", command, args)
+
+	// TODO: investigate using syscall.Exec
+
+	cmd := exec.Command(command, args...)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	err := cmd.Run()
+
+	// adapted from http://stackoverflow.com/questions/10385551/get-exit-code-go
+	if exiterr, ok := err.(*exec.ExitError); ok {
+		if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
+			os.Exit(status.ExitStatus())
+		} else {
+			os.Exit(1)
+		}
+	} else {
+		return errors.Wrap(err, "unable to run command")
+	}
+	// end adapted from
+
 	return nil
 }
