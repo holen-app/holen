@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"github.com/kr/pretty"
@@ -83,6 +84,24 @@ func (ds DockerStrategy) Run(args []string) error {
 	return nil
 }
 
+func (bs BinaryStrategy) DownloadPath() (string, error) {
+	var downloadPath string
+	if configDownloadPath, err := bs.Get("binary.download"); err == nil && len(configDownloadPath) > 0 {
+		downloadPath = configDownloadPath
+	} else if xdgDataHome := os.Getenv("XDG_DATA_HOME"); len(xdgDataHome) > 0 {
+		downloadPath = filepath.Join(xdgDataHome, "holen", "bin")
+	} else {
+		var home string
+		if home = os.Getenv("HOME"); len(home) == 0 {
+			return "", fmt.Errorf("$HOME environment variable not found")
+		}
+		downloadPath = filepath.Join(home, ".local", "share", "holen", "bin")
+	}
+	os.MkdirAll(downloadPath, 0755)
+
+	return downloadPath, nil
+}
+
 func (bs BinaryStrategy) Run(args []string) error {
 	temp := bs.Templater(bs.Data.Version, bs.Data.ArchMap, bs.System)
 	bs.Debugf("templater: %# v", pretty.Formatter(temp))
@@ -92,8 +111,11 @@ func (bs BinaryStrategy) Run(args []string) error {
 		return errors.Wrap(err, "unable to template url")
 	}
 
-	// TODO: figure out local path
-	localPath := filepath.Join("local", fmt.Sprintf("%s--%s", bs.Data.Name, bs.Data.Version))
+	downloadPath, err := bs.DownloadPath()
+	if err != nil {
+		return errors.Wrap(err, "unable to find download path")
+	}
+	localPath := filepath.Join(downloadPath, fmt.Sprintf("%s--%s", bs.Data.Name, bs.Data.Version))
 
 	err = bs.DownloadFile(url, localPath)
 	if err != nil {
