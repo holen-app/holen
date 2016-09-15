@@ -103,26 +103,11 @@ func (dr DefaultRunner) CheckCommand(command string, args []string) bool {
 func (dr DefaultRunner) RunCommand(command string, args []string) error {
 	dr.Infof("Running command %s with args %v", command, args)
 
-	// TODO: investigate using syscall.Exec
-
-	cmd := exec.Command(command, args...)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	err := cmd.Run()
-
-	// adapted from http://stackoverflow.com/questions/10385551/get-exit-code-go
-	if exiterr, ok := err.(*exec.ExitError); ok {
-		if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
-			os.Exit(status.ExitStatus())
-		} else {
-			os.Exit(1)
-		}
-	} else {
-		return errors.Wrap(err, "unable to run command")
+	// adapted from https://gobyexample.com/execing-processes
+	fullPath, err := exec.LookPath(command)
+	if err != nil {
+		return err
 	}
+	return syscall.Exec(fullPath, append([]string{command}, args...), os.Environ())
 	// end adapted from
-
-	return nil
 }
