@@ -41,6 +41,8 @@ type DockerData struct {
 	MountPwd    bool              `yaml:"mount_pwd"`
 	DockerConn  bool              `yaml:"docker_conn"`
 	Interactive bool              `yaml:"interactive"`
+	Terminal    string            `yaml:"terminal"`
+	PidHost     bool              `yaml:"pid_host"`
 	ArchMap     map[string]string `yaml:"arch_map"`
 }
 
@@ -62,7 +64,7 @@ type BinaryStrategy struct {
 	Data BinaryData
 }
 
-func (ds DockerStrategy) Run(args []string) error {
+func (ds DockerStrategy) Run(extraArgs []string) error {
 	temp := ds.Templater(ds.Data.Version, ds.Data.ArchMap, ds.System)
 	ds.Debugf("templater: %# v", pretty.Formatter(temp))
 
@@ -77,7 +79,27 @@ func (ds DockerStrategy) Run(args []string) error {
 	// 	return errors.Wrap(err, "can't pull image")
 	// }
 
-	ds.RunCommand("docker", append([]string{"run", "-i", "--rm", image}, args...))
+	args := []string{"run"}
+	if ds.Data.Interactive {
+		args = append(args, "-i")
+	}
+	// TODO: prompt the user for permission to do more invasive docker binding
+	if ds.Data.DockerConn {
+		args = append(args, "-v", "/var/run/docker.sock:/var/run/docker.sock")
+	}
+	if ds.Data.PidHost {
+		args = append(args, "--pid", "host")
+	}
+	if ds.Data.Terminal != "" {
+		// TODO: support 'auto' mode that autodetects if tty is present
+		if ds.Data.Terminal == "always" {
+			args = append(args, "-t")
+		}
+	}
+	args = append(args, "--rm", image)
+	args = append(args, extraArgs...)
+
+	ds.RunCommand("docker", args)
 	if err != nil {
 		return errors.Wrap(err, "can't run image")
 	}

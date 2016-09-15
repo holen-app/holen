@@ -154,10 +154,16 @@ func (m *Manifest) LoadStrategy(utility NameVer) (Strategy, error) {
 		mount_pwd, mount_pwd_ok := final["mount_pwd"]
 		docker_conn, docker_conn_ok := final["docker_conn"]
 		interactive, interactive_ok := final["interactive"]
+		pid_host, pid_host_ok := final["pid_host"]
+		terminal, terminal_ok := final["terminal"]
 		image, image_ok := final["image"]
 
 		if !image_ok {
 			return strat, errors.New("At least 'image' needed for docker strategy to work")
+		}
+
+		if !terminal_ok {
+			terminal = ""
 		}
 
 		strat = DockerStrategy{
@@ -170,6 +176,8 @@ func (m *Manifest) LoadStrategy(utility NameVer) (Strategy, error) {
 				MountPwd:    mount_pwd_ok && mount_pwd.(bool),
 				DockerConn:  docker_conn_ok && docker_conn.(bool),
 				Interactive: !interactive_ok || interactive.(bool),
+				PidHost:     !pid_host_ok || pid_host.(bool),
+				Terminal:    terminal.(string),
 				ArchMap:     arch_map,
 			},
 		}
