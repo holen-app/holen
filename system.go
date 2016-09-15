@@ -87,10 +87,17 @@ func (dd DefaultDownloader) PullDockerImage(image string) error {
 
 type Runner interface {
 	RunCommand(string, []string) error
+	CheckCommand(string, []string) bool
 }
 
 type DefaultRunner struct {
 	Logger
+}
+
+func (dr DefaultRunner) CheckCommand(command string, args []string) bool {
+	dr.Infof("Checking command %s with args %v", command, args)
+
+	return exec.Command(command, args...).Run() == nil
 }
 
 func (dr DefaultRunner) RunCommand(command string, args []string) error {
