@@ -71,12 +71,13 @@ func (ds DockerStrategy) Run(args []string) error {
 		return errors.Wrap(err, "unable to template image name")
 	}
 
-	err = ds.PullDockerImage(image)
-	if err != nil {
-		return errors.Wrap(err, "can't pull image")
-	}
+	// TODO: add flag to force pulling image again
+	// err = ds.PullDockerImage(image)
+	// if err != nil {
+	// 	return errors.Wrap(err, "can't pull image")
+	// }
 
-	ds.RunCommand("docker", append([]string{"run", image}, args...))
+	ds.RunCommand("docker", append([]string{"run", "-i", "--rm", image}, args...))
 	if err != nil {
 		return errors.Wrap(err, "can't run image")
 	}
