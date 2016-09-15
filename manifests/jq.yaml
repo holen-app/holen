@@ -1,6 +1,10 @@
 --- # jq
 desc: Lightweight and flexible command-line JSON processor
 strategies:
+    docker:
+        image: jemmyw/jq:{{.Version}}
+        versions:
+          - version: '1.5'
     binary:
         base_url: https://github.com/stedolan/jq/releases/download/jq-{{.Version}}/jq-{{.MappedArch}}
         arch_map:
