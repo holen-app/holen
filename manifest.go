@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
+	"path"
 	"strings"
 
 	"github.com/kr/pretty"
@@ -35,10 +37,49 @@ func NewManifestFinder() (*DefaultManifestFinder, error) {
 func (dmf DefaultManifestFinder) Find(utility NameVer) (*Manifest, error) {
 	md := ManifestData{}
 
-	file := fmt.Sprintf("manifests/%s.yaml", utility.Name)
+	paths := make([]string, 0)
 
-	dmf.Infof("attemting to load: %s", file)
-	data, err := ioutil.ReadFile(file)
+	holenPath := os.Getenv("HLN_PATH")
+	if len(holenPath) > 0 {
+		paths = append(paths, holenPath)
+	}
+
+	configHolenPath, err := dmf.Get("manifest.path")
+	if err == nil && len(configHolenPath) > 0 {
+		paths = append(paths, configHolenPath)
+	}
+
+	holenPathPost := os.Getenv("HLN_PATH_POST")
+	if len(holenPathPost) > 0 {
+		paths = append(paths, holenPathPost)
+	}
+
+	allPaths := strings.Join(paths, ":")
+
+	if len(allPaths) == 0 {
+		allPaths = path.Join(path.Dir(os.Args[0]), "manifests")
+	}
+
+	dmf.Debugf("all paths: %s", allPaths)
+
+	var manifestPath string
+	for _, p := range strings.Split(allPaths, ":") {
+
+		tryPath := path.Join(p, fmt.Sprintf("%s.yaml", utility.Name))
+		dmf.Debugf("trying: %s", tryPath)
+		if _, err := os.Stat(tryPath); err == nil {
+			dmf.Debugf("found manifest: %s", tryPath)
+			manifestPath = tryPath
+			break
+		}
+	}
+
+	if len(manifestPath) == 0 {
+		return nil, fmt.Errorf("unable to find manifest for %s", utility.Name)
+	}
+
+	dmf.Infof("attemting to load: %s", manifestPath)
+	data, err := ioutil.ReadFile(manifestPath)
 	if err != nil {
 		return nil, errors.Wrap(err, "problems with reading file")
 	}
