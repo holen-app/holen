@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"strings"
 
 	"github.com/Sirupsen/logrus"
 	flags "github.com/jessevdk/go-flags"
@@ -48,7 +49,7 @@ func main() {
 	}
 
 	logrus.SetFormatter(&logrus.TextFormatter{FullTimestamp: true})
-	if basename == "holen" || basename == "hln" {
+	if basename == "holen" || basename == "hln" || strings.HasPrefix(basename, "holen") {
 
 		// configure logging
 		logrus.SetLevel(logrus.InfoLevel)
