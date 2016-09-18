@@ -7,6 +7,7 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	flags "github.com/jessevdk/go-flags"
+	"github.com/kardianos/osext"
 )
 
 type GlobalOptions struct {
@@ -30,6 +31,19 @@ var originalArgs []string
 func main() {
 	basename := path.Base(os.Args[0])
 	utilityNameOverride := os.Getenv("HLN_UTILITY")
+
+	var selfPath string
+	var err error
+
+	if selfPathOverride := os.Getenv("HLN_SELF_PATH_OVERRIDE"); len(selfPathOverride) > 0 {
+		selfPath = selfPathOverride
+	} else {
+		selfPath, err = osext.Executable()
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+	}
 
 	logrus.SetFormatter(&logrus.TextFormatter{FullTimestamp: true})
 	if (basename == "holen" || basename == "hln") && len(utilityNameOverride) == 0 {
@@ -73,7 +87,7 @@ func main() {
 			basename = utilityNameOverride
 		}
 
-		err = RunUtility(basename, args)
+		err = RunUtility(selfPath, basename, args)
 		if err != nil {
 			fmt.Printf("Unable to run %s: %s\n", basename, err)
 			os.Exit(1)

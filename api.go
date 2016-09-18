@@ -1,7 +1,7 @@
 package main
 
-func RunUtility(utility string, args []string) error {
-	manifestFinder, err := NewManifestFinder()
+func RunUtility(selfPath, utility string, args []string) error {
+	manifestFinder, err := NewManifestFinder(selfPath)
 	if err != nil {
 		return err
 	}

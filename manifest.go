@@ -19,9 +19,10 @@ type ManifestFinder interface {
 type DefaultManifestFinder struct {
 	Logger
 	ConfigGetter
+	SelfPath string
 }
 
-func NewManifestFinder() (*DefaultManifestFinder, error) {
+func NewManifestFinder(selfPath string) (*DefaultManifestFinder, error) {
 	conf, err := NewDefaultConfigClient()
 	if err != nil {
 		return nil, err
@@ -31,6 +32,7 @@ func NewManifestFinder() (*DefaultManifestFinder, error) {
 	return &DefaultManifestFinder{
 		Logger:       logger,
 		ConfigGetter: conf,
+		SelfPath:     selfPath,
 	}, nil
 }
 
@@ -57,7 +59,7 @@ func (dmf DefaultManifestFinder) Find(utility NameVer) (*Manifest, error) {
 	allPaths := strings.Join(paths, ":")
 
 	if len(allPaths) == 0 {
-		allPaths = path.Join(path.Dir(os.Args[0]), "manifests")
+		allPaths = path.Join(path.Dir(dmf.SelfPath), "manifests")
 	}
 
 	dmf.Debugf("all paths: %s", allPaths)
