@@ -2,82 +2,95 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
-	"log"
 	"os"
 	"path"
-	"strings"
 
 	"github.com/Sirupsen/logrus"
 	flags "github.com/jessevdk/go-flags"
-
-	yaml "gopkg.in/yaml.v2"
+	"github.com/kardianos/osext"
 )
 
 type GlobalOptions struct {
-	Quiet   func() `short:"q" long:"quiet" description:"Show as little information as possible."`
-	Verbose func() `short:"v" long:"verbose" description:"Show verbose debug information."`
-	LogJSON func() `short:"j" long:"log-json" description:"Log in JSON format."`
+	Quiet   func(string) `env:"HLN_QUIET" short:"q" long:"quiet" description:"Show as little information as possible."`
+	Verbose func(string) `env:"HLN_VERBOSE" short:"v" long:"verbose" description:"Show verbose debug information."`
+	LogJSON func(string) `env:"HLN_LOG_JSON" short:"j" long:"log-json" description:"Log in JSON format."`
+}
+
+type InlineOptions struct {
+	Verbose func(string) `env:"HLN_VERBOSE" long:"hln-verbose" description:"Show verbose debug information."`
+	LogJSON func(string) `env:"HLN_LOG_JSON" long:"hln-log-json" description:"Log in JSON format."`
 }
 
 var globalOptions GlobalOptions
+var inlineOptions InlineOptions
+
 var parser = flags.NewParser(&globalOptions, flags.Default)
+var inlineParser = flags.NewParser(&inlineOptions, flags.PrintErrors|flags.IgnoreUnknown)
 var originalArgs []string
 
 func main() {
-	m := Manifest{}
-
 	basename := path.Base(os.Args[0])
+	utilityNameOverride := os.Getenv("HLN_UTILITY")
 
-	if basename == "holen" || basename == "hln" {
+	var selfPath string
+	var err error
+
+	if selfPathOverride := os.Getenv("HLN_SELF_PATH_OVERRIDE"); len(selfPathOverride) > 0 {
+		selfPath = selfPathOverride
+	} else {
+		selfPath, err = osext.Executable()
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+	}
+
+	logrus.SetFormatter(&logrus.TextFormatter{FullTimestamp: true})
+	if (basename == "holen" || basename == "hln") && len(utilityNameOverride) == 0 {
 
 		// configure logging
 		logrus.SetLevel(logrus.InfoLevel)
-		logrus.SetFormatter(&logrus.TextFormatter{FullTimestamp: true})
 
 		// options to change log level
-		globalOptions.Quiet = func() {
+		globalOptions.Quiet = func(v string) {
 			logrus.SetLevel(logrus.WarnLevel)
 		}
-		globalOptions.Verbose = func() {
+		globalOptions.Verbose = func(v string) {
 			logrus.SetLevel(logrus.DebugLevel)
 		}
-		globalOptions.LogJSON = func() {
+		globalOptions.LogJSON = func(v string) {
 			logrus.SetFormatter(&logrus.JSONFormatter{})
 		}
-		originalArgs = os.Args
+
 		if _, err := parser.Parse(); err != nil {
 			os.Exit(1)
 		}
 	} else {
 
-		parts := strings.Split(basename, "--")
-		version := ""
-		if len(parts) > 1 {
-			version = parts[1]
+		// configure logging
+		logrus.SetLevel(logrus.WarnLevel)
+
+		// options to change log level
+		inlineOptions.Verbose = func(v string) {
+			logrus.SetLevel(logrus.DebugLevel)
+		}
+		inlineOptions.LogJSON = func(v string) {
+			logrus.SetFormatter(&logrus.JSONFormatter{})
 		}
 
-		// fmt.Println(parts)
-		file := fmt.Sprintf("manifests/%s.yaml", parts[0])
-		// fmt.Println(file)
-		data, err := ioutil.ReadFile(file)
+		args, err := inlineParser.Parse()
 		if err != nil {
-			log.Fatalf("error: %v", err)
+			os.Exit(1)
 		}
 
-		err = yaml.Unmarshal([]byte(data), &m)
+		if len(utilityNameOverride) > 0 {
+			basename = utilityNameOverride
+		}
+
+		err = RunUtility(selfPath, basename, args)
 		if err != nil {
-			log.Fatalf("error: %v", err)
+			fmt.Printf("Unable to run %s: %s\n", basename, err)
+			os.Exit(1)
 		}
-
-		// load this from config or by detecting environment
-		defaultStrategy := "docker"
-
-		strategy, err := loadStrategy(m, defaultStrategy, version)
-		if err != nil {
-			log.Fatalf("error: %v", err)
-		}
-
-		fmt.Printf("%v\n", strategy)
 	}
 }

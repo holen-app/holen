@@ -1,13 +1,13 @@
 --- # docker-compose
-name: A tool for defining and running multi-container Docker applications.
+desc: A tool for defining and running multi-container Docker applications.
 strategies:
     docker:
         image: docker/compose:{{.Version}}
         docker_conn: true
         mount_pwd: true
         versions:
-          - version: 1.8.0
-          - version: 1.7.1
+          - version: '1.8.0'
+          - version: '1.7.1'
     binary:
         base_url: https://github.com/docker/compose/releases/download/{{.Version}}/docker-compose-{{.MappedArch}}
         arch_map:
@@ -15,6 +15,6 @@ strategies:
             linux_amd64: Linux-x86_64
             darwin_amd64: Darwin-x86_64
         versions:
-          - version: 1.8.0
-          - version: 1.7.1
+          - version: '1.8.0'
+          - version: '1.7.1'
 ...
