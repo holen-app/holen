@@ -15,7 +15,7 @@ git tag $VER
 echo "Building $VER"
 echo
 
-gox -ldflags "-X main.version $VER" -osarch="darwin/amd64 linux/amd64"
+gox -ldflags "-X main.version=$VER" -osarch="darwin/amd64 linux/amd64"
 
 echo "$ sha1sum holen_*"
 sha1sum holen_*
