@@ -30,7 +30,9 @@ var originalArgs []string
 
 func main() {
 	basename := path.Base(os.Args[0])
-	utilityNameOverride := os.Getenv("HLN_UTILITY")
+	if utilityNameOverride := os.Getenv("HLN_UTILITY"); len(utilityNameOverride) > 0 {
+		basename = utilityNameOverride
+	}
 
 	var selfPath string
 	var err error
@@ -46,7 +48,7 @@ func main() {
 	}
 
 	logrus.SetFormatter(&logrus.TextFormatter{FullTimestamp: true})
-	if (basename == "holen" || basename == "hln") && len(utilityNameOverride) == 0 {
+	if basename == "holen" || basename == "hln" {
 
 		// configure logging
 		logrus.SetLevel(logrus.InfoLevel)
@@ -81,10 +83,6 @@ func main() {
 		args, err := inlineParser.Parse()
 		if err != nil {
 			os.Exit(1)
-		}
-
-		if len(utilityNameOverride) > 0 {
-			basename = utilityNameOverride
 		}
 
 		err = RunUtility(selfPath, basename, args)
