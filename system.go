@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path"
 	"runtime"
 	"syscall"
 
@@ -108,6 +109,6 @@ func (dr DefaultRunner) RunCommand(command string, args []string) error {
 	if err != nil {
 		return err
 	}
-	return syscall.Exec(fullPath, append([]string{command}, args...), os.Environ())
+	return syscall.Exec(fullPath, append([]string{path.Base(command)}, args...), os.Environ())
 	// end adapted from
 }
