@@ -67,6 +67,7 @@ type BinaryStrategy struct {
 func (ds DockerStrategy) Run(extraArgs []string) error {
 	// skip if docker not found
 	if !ds.CheckCommand("docker", []string{"version"}) {
+		ds.Debugf("skipping, docker not available")
 		return &SkipError{"docker not available"}
 	}
 
