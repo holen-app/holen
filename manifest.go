@@ -115,9 +115,7 @@ type Manifest struct {
 	Data ManifestData
 }
 
-func (m *Manifest) LoadStrategy(utility NameVer) (Strategy, error) {
-
-	var strat Strategy
+func (m *Manifest) LoadStrategies(utility NameVer) ([]Strategy, error) {
 
 	// default
 	priority := "docker,binary"
@@ -128,6 +126,8 @@ func (m *Manifest) LoadStrategy(utility NameVer) (Strategy, error) {
 
 	m.Debugf("Priority order: %s", priority)
 
+	strategies := make([]Strategy, 0)
+
 	var selectedStrategy string
 	var foundStrategy map[interface{}]interface{}
 	for _, try := range strings.Split(priority, ",") {
@@ -135,115 +135,111 @@ func (m *Manifest) LoadStrategy(utility NameVer) (Strategy, error) {
 		if strategy, strategy_ok := m.Data.Strategies[try]; strategy_ok {
 			selectedStrategy = try
 			foundStrategy = strategy
-			break
-		}
-	}
 
-	if len(selectedStrategy) == 0 {
-		return strat, fmt.Errorf("No strategy found, tried %s.", priority)
-	}
+			var selectedVersion map[interface{}]interface{}
+			versions := foundStrategy["versions"].([]interface{})
 
-	var selectedVersion map[interface{}]interface{}
-	versions := foundStrategy["versions"].([]interface{})
-
-	if len(utility.Version) > 0 {
-		found := false
-		for _, verInfo := range versions {
-			if verInfo.(map[interface{}]interface{})["version"] == utility.Version {
-				selectedVersion = verInfo.(map[interface{}]interface{})
-				found = true
+			if len(utility.Version) > 0 {
+				found := false
+				for _, verInfo := range versions {
+					if verInfo.(map[interface{}]interface{})["version"] == utility.Version {
+						selectedVersion = verInfo.(map[interface{}]interface{})
+						found = true
+					}
+				}
+				if !found {
+					return strategies, fmt.Errorf("Unable to find version %s", utility.Version)
+				}
+			} else {
+				selectedVersion = versions[0].(map[interface{}]interface{})
 			}
-		}
-		if !found {
-			return strat, fmt.Errorf("Unable to find version %s", utility.Version)
-		}
-	} else {
-		selectedVersion = versions[0].(map[interface{}]interface{})
-	}
 
-	delete(foundStrategy, "versions")
-	// fmt.Printf("%v\n", strategy)
-	// fmt.Printf("%v\n", versions)
-	// fmt.Printf("%v\n", selectedVersion)
-	final := mergeMaps(foundStrategy, selectedVersion)
-	// fmt.Printf("%v\n", final)
+			delete(foundStrategy, "versions")
+			// fmt.Printf("%v\n", strategy)
+			// fmt.Printf("%v\n", versions)
+			// fmt.Printf("%v\n", selectedVersion)
+			final := mergeMaps(foundStrategy, selectedVersion)
+			// fmt.Printf("%v\n", final)
 
-	// handle common keys
-	orig_arch_map, arch_map_ok := final["arch_map"]
+			// handle common keys
+			orig_arch_map, arch_map_ok := final["arch_map"]
 
-	arch_map := make(map[string]string)
-	if arch_map_ok {
-		for k, v := range orig_arch_map.(map[interface{}]interface{}) {
-			arch_map[k.(string)] = v.(string)
-		}
-	}
+			arch_map := make(map[string]string)
+			if arch_map_ok {
+				for k, v := range orig_arch_map.(map[interface{}]interface{}) {
+					arch_map[k.(string)] = v.(string)
+				}
+			}
 
-	conf, err := NewDefaultConfigClient()
-	if err != nil {
-		return strat, err
-	}
+			conf, err := NewDefaultConfigClient()
+			if err != nil {
+				return strategies, err
+			}
 
-	runner := &DefaultRunner{m.Logger}
-	commonUtility := &StrategyCommon{
-		System:       &DefaultSystem{},
-		Logger:       m.Logger,
-		ConfigGetter: conf,
-		Downloader:   &DefaultDownloader{m.Logger, runner},
-		Runner:       runner,
-	}
+			runner := &DefaultRunner{m.Logger}
+			commonUtility := &StrategyCommon{
+				System:       &DefaultSystem{},
+				Logger:       m.Logger,
+				ConfigGetter: conf,
+				Downloader:   &DefaultDownloader{m.Logger, runner},
+				Runner:       runner,
+			}
 
-	// handle strategy specific keys
-	if selectedStrategy == "docker" {
-		mount_pwd, mount_pwd_ok := final["mount_pwd"]
-		docker_conn, docker_conn_ok := final["docker_conn"]
-		interactive, interactive_ok := final["interactive"]
-		pid_host, pid_host_ok := final["pid_host"]
-		terminal, terminal_ok := final["terminal"]
-		image, image_ok := final["image"]
+			// handle strategy specific keys
+			if selectedStrategy == "docker" {
+				mount_pwd, mount_pwd_ok := final["mount_pwd"]
+				docker_conn, docker_conn_ok := final["docker_conn"]
+				interactive, interactive_ok := final["interactive"]
+				pid_host, pid_host_ok := final["pid_host"]
+				terminal, terminal_ok := final["terminal"]
+				image, image_ok := final["image"]
 
-		if !image_ok {
-			return strat, errors.New("At least 'image' needed for docker strategy to work")
-		}
+				if !image_ok {
+					return strategies, errors.New("At least 'image' needed for docker strategy to work")
+				}
 
-		if !terminal_ok {
-			terminal = ""
-		}
+				if !terminal_ok {
+					terminal = ""
+				}
 
-		strat = DockerStrategy{
-			StrategyCommon: commonUtility,
-			Data: DockerData{
-				Name:        m.Data.Name,
-				Desc:        m.Data.Desc,
-				Version:     final["version"].(string),
-				Image:       image.(string),
-				MountPwd:    mount_pwd_ok && mount_pwd.(bool),
-				DockerConn:  docker_conn_ok && docker_conn.(bool),
-				Interactive: !interactive_ok || interactive.(bool),
-				PidHost:     !pid_host_ok || pid_host.(bool),
-				Terminal:    terminal.(string),
-				ArchMap:     arch_map,
-			},
-		}
-	} else if selectedStrategy == "binary" {
-		base_url, base_url_ok := final["base_url"]
+				strategies = append(strategies, DockerStrategy{
+					StrategyCommon: commonUtility,
+					Data: DockerData{
+						Name:        m.Data.Name,
+						Desc:        m.Data.Desc,
+						Version:     final["version"].(string),
+						Image:       image.(string),
+						MountPwd:    mount_pwd_ok && mount_pwd.(bool),
+						DockerConn:  docker_conn_ok && docker_conn.(bool),
+						Interactive: !interactive_ok || interactive.(bool),
+						PidHost:     !pid_host_ok || pid_host.(bool),
+						Terminal:    terminal.(string),
+						ArchMap:     arch_map,
+					},
+				})
+			} else if selectedStrategy == "binary" {
+				base_url, base_url_ok := final["base_url"]
 
-		if !base_url_ok {
-			return strat, errors.New("At least 'base_url' needed for binary strategy to work")
-		}
+				if !base_url_ok {
+					return strategies, errors.New("At least 'base_url' needed for binary strategy to work")
+				}
 
-		strat = BinaryStrategy{
-			StrategyCommon: commonUtility,
-			Data: BinaryData{
-				Name:    m.Data.Name,
-				Desc:    m.Data.Desc,
-				Version: final["version"].(string),
-				BaseUrl: base_url.(string),
-				ArchMap: arch_map,
-			},
+				strategies = append(strategies, BinaryStrategy{
+					StrategyCommon: commonUtility,
+					Data: BinaryData{
+						Name:    m.Data.Name,
+						Desc:    m.Data.Desc,
+						Version: final["version"].(string),
+						BaseUrl: base_url.(string),
+						ArchMap: arch_map,
+					},
+				})
+			}
+
 		}
 	}
 
-	m.Debugf("using strategy: %# v", pretty.Formatter(strat))
+	m.Debugf("found strategies: %# v", pretty.Formatter(strategies))
 
-	return strat, nil
+	return strategies, nil
 }

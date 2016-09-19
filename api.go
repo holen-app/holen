@@ -13,10 +13,20 @@ func RunUtility(selfPath, utility string, args []string) error {
 		return err
 	}
 
-	strategy, err := manifest.LoadStrategy(nameVer)
+	strategies, err := manifest.LoadStrategies(nameVer)
 	if err != nil {
 		return err
 	}
 
-	return strategy.Run(args)
+	for _, strategy := range strategies {
+		err = strategy.Run(args)
+		if err != nil {
+			// keep going if it's a reason to skip
+			if _, ok := err.(*SkipError); !ok {
+				return err
+			}
+		}
+	}
+
+	return nil
 }

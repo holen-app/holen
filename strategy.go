@@ -65,6 +65,11 @@ type BinaryStrategy struct {
 }
 
 func (ds DockerStrategy) Run(extraArgs []string) error {
+	// skip if docker not found
+	if !ds.CheckCommand("docker", []string{"version"}) {
+		return &SkipError{"docker not available"}
+	}
+
 	temp := ds.Templater(ds.Data.Version, ds.Data.ArchMap, ds.System)
 	ds.Debugf("templater: %# v", pretty.Formatter(temp))
 
