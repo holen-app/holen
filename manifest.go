@@ -148,7 +148,8 @@ func (m *Manifest) LoadStrategies(utility NameVer) ([]Strategy, error) {
 					}
 				}
 				if !found {
-					return strategies, fmt.Errorf("Unable to find version %s", utility.Version)
+					m.Debugf("strategy %s does not have version %s", try, utility.Version)
+					continue
 				}
 			} else {
 				selectedVersion = versions[0].(map[interface{}]interface{})
