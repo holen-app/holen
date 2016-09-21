@@ -25,4 +25,4 @@ _testmain.go
 
 holen
 holen_*
-manifests/
+manifests/*.yaml
