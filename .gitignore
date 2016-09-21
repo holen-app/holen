@@ -24,3 +24,5 @@ _testmain.go
 *.prof
 
 holen
+holen_*
+manifests/
