@@ -93,10 +93,14 @@ func (dmf DefaultManifestFinder) Find(utility NameVer) (*Manifest, error) {
 
 	md.Name = utility.Name
 
+	runner := &DefaultRunner{dmf.Logger}
 	manifest := &Manifest{
 		Logger:       dmf.Logger,
 		ConfigGetter: dmf.ConfigGetter,
 		Data:         md,
+		Runner:       runner,
+		System:       &DefaultSystem{},
+		Downloader:   &DefaultDownloader{dmf.Logger, runner},
 	}
 	dmf.Debugf("manifest found: %# v", pretty.Formatter(manifest))
 
@@ -112,7 +116,10 @@ type ManifestData struct {
 type Manifest struct {
 	Logger
 	ConfigGetter
-	Data ManifestData
+	Data       ManifestData
+	Runner     Runner
+	System     System
+	Downloader Downloader
 }
 
 func (m *Manifest) LoadStrategies(utility NameVer) ([]Strategy, error) {
@@ -172,18 +179,12 @@ func (m *Manifest) LoadStrategies(utility NameVer) ([]Strategy, error) {
 				}
 			}
 
-			conf, err := NewDefaultConfigClient()
-			if err != nil {
-				return strategies, err
-			}
-
-			runner := &DefaultRunner{m.Logger}
 			commonUtility := &StrategyCommon{
-				System:       &DefaultSystem{},
+				System:       m.System,
 				Logger:       m.Logger,
-				ConfigGetter: conf,
-				Downloader:   &DefaultDownloader{m.Logger, runner},
-				Runner:       runner,
+				ConfigGetter: m.ConfigGetter,
+				Downloader:   m.Downloader,
+				Runner:       m.Runner,
 			}
 
 			// handle strategy specific keys
