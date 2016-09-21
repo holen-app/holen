@@ -244,3 +244,22 @@ func (m *Manifest) LoadStrategies(utility NameVer) ([]Strategy, error) {
 
 	return strategies, nil
 }
+
+func (m *Manifest) Run(utility NameVer, args []string) error {
+	strategies, err := m.LoadStrategies(utility)
+	if err != nil {
+		return err
+	}
+
+	for _, strategy := range strategies {
+		err = strategy.Run(args)
+		if err != nil {
+			// keep going if it's a reason to skip
+			if _, ok := err.(*SkipError); !ok {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
