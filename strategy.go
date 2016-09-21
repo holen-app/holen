@@ -147,15 +147,15 @@ func (bs BinaryStrategy) Run(args []string) error {
 	}
 	localPath := filepath.Join(downloadPath, fmt.Sprintf("%s--%s", bs.Data.Name, bs.Data.Version))
 
-	if _, err := os.Stat(localPath); os.IsNotExist(err) {
+	if !bs.FileExists(localPath) {
 		err = bs.DownloadFile(url, localPath)
 		if err != nil {
 			return errors.Wrap(err, "can't download binary")
 		}
 
-		err = os.Chmod(localPath, 0755)
+		err = bs.MakeExecutable(localPath)
 		if err != nil {
-			return errors.Wrap(err, "unable to chmod binary")
+			return errors.Wrap(err, "unable to make binary executable")
 		}
 	}
 

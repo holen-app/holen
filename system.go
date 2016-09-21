@@ -17,6 +17,8 @@ import (
 type System interface {
 	OS() string
 	Arch() string
+	FileExists(string) bool
+	MakeExecutable(string) error
 }
 
 type DefaultSystem struct{}
@@ -27,6 +29,17 @@ func (ds DefaultSystem) OS() string {
 
 func (ds DefaultSystem) Arch() string {
 	return runtime.GOARCH
+}
+
+func (ds DefaultSystem) FileExists(localPath string) bool {
+	if _, err := os.Stat(localPath); os.IsNotExist(err) {
+		return false
+	}
+	return true
+}
+
+func (ds DefaultSystem) MakeExecutable(localPath string) error {
+	return os.Chmod(localPath, 0755)
 }
 
 type Logger interface {
