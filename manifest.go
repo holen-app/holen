@@ -13,7 +13,7 @@ import (
 )
 
 type ManifestFinder interface {
-	Find(string) (*Manifest, error)
+	Find(NameVer) (*Manifest, error)
 }
 
 type DefaultManifestFinder struct {
