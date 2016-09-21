@@ -25,6 +25,7 @@ func (sc *StrategyCommon) Templater(version string, archMap map[string]string, s
 		Version:    version,
 		OS:         system.OS(),
 		Arch:       system.Arch(),
+		OSArch:     archKey,
 		MappedArch: value,
 	}
 }
@@ -43,7 +44,7 @@ type DockerData struct {
 	Interactive bool              `yaml:"interactive"`
 	Terminal    string            `yaml:"terminal"`
 	PidHost     bool              `yaml:"pid_host"`
-	ArchMap     map[string]string `yaml:"arch_map"`
+	OSArchMap   map[string]string `yaml:"os_arch_map"`
 }
 
 type DockerStrategy struct {
@@ -52,11 +53,11 @@ type DockerStrategy struct {
 }
 
 type BinaryData struct {
-	Name    string
-	Desc    string
-	Version string            `yaml:"version"`
-	BaseUrl string            `yaml:"base_url"`
-	ArchMap map[string]string `yaml:"arch_map"`
+	Name      string
+	Desc      string
+	Version   string            `yaml:"version"`
+	BaseUrl   string            `yaml:"base_url"`
+	OSArchMap map[string]string `yaml:"os_arch_map"`
 }
 
 type BinaryStrategy struct {
@@ -71,7 +72,7 @@ func (ds DockerStrategy) Run(extraArgs []string) error {
 		return &SkipError{"docker not available"}
 	}
 
-	temp := ds.Templater(ds.Data.Version, ds.Data.ArchMap, ds.System)
+	temp := ds.Templater(ds.Data.Version, ds.Data.OSArchMap, ds.System)
 	ds.Debugf("templater: %# v", pretty.Formatter(temp))
 
 	image, err := temp.Template(ds.Data.Image)
@@ -132,7 +133,7 @@ func (bs BinaryStrategy) DownloadPath() (string, error) {
 }
 
 func (bs BinaryStrategy) Run(args []string) error {
-	temp := bs.Templater(bs.Data.Version, bs.Data.ArchMap, bs.System)
+	temp := bs.Templater(bs.Data.Version, bs.Data.OSArchMap, bs.System)
 	bs.Debugf("templater: %# v", pretty.Formatter(temp))
 
 	url, err := temp.Template(bs.Data.BaseUrl)

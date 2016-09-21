@@ -163,12 +163,12 @@ func (m *Manifest) LoadStrategies(utility NameVer) ([]Strategy, error) {
 			// fmt.Printf("%v\n", final)
 
 			// handle common keys
-			orig_arch_map, arch_map_ok := final["arch_map"]
+			orig_os_arch_map, os_arch_map_ok := final["os_arch_map"]
 
-			arch_map := make(map[string]string)
-			if arch_map_ok {
-				for k, v := range orig_arch_map.(map[interface{}]interface{}) {
-					arch_map[k.(string)] = v.(string)
+			os_arch_map := make(map[string]string)
+			if os_arch_map_ok {
+				for k, v := range orig_os_arch_map.(map[interface{}]interface{}) {
+					os_arch_map[k.(string)] = v.(string)
 				}
 			}
 
@@ -215,7 +215,7 @@ func (m *Manifest) LoadStrategies(utility NameVer) ([]Strategy, error) {
 						Interactive: !interactive_ok || interactive.(bool),
 						PidHost:     !pid_host_ok || pid_host.(bool),
 						Terminal:    terminal.(string),
-						ArchMap:     arch_map,
+						OSArchMap:   os_arch_map,
 					},
 				})
 			} else if selectedStrategy == "binary" {
@@ -228,11 +228,11 @@ func (m *Manifest) LoadStrategies(utility NameVer) ([]Strategy, error) {
 				strategies = append(strategies, BinaryStrategy{
 					StrategyCommon: commonUtility,
 					Data: BinaryData{
-						Name:    m.Data.Name,
-						Desc:    m.Data.Desc,
-						Version: final["version"].(string),
-						BaseUrl: base_url.(string),
-						ArchMap: arch_map,
+						Name:      m.Data.Name,
+						Desc:      m.Data.Desc,
+						Version:   final["version"].(string),
+						BaseUrl:   base_url.(string),
+						OSArchMap: os_arch_map,
 					},
 				})
 			}

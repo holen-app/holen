@@ -9,6 +9,7 @@ type Templater struct {
 	Version    string
 	OS         string
 	Arch       string
+	OSArch     string
 	MappedArch string
 }
 
