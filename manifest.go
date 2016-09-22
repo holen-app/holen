@@ -39,7 +39,7 @@ func NewManifestFinder(selfPath string) (*DefaultManifestFinder, error) {
 func (dmf DefaultManifestFinder) Find(utility NameVer) (*Manifest, error) {
 	md := ManifestData{}
 
-	paths := make([]string, 0)
+	var paths []string
 
 	holenPath := os.Getenv("HLN_PATH")
 	if len(holenPath) > 0 {
@@ -133,13 +133,13 @@ func (m *Manifest) LoadStrategies(utility NameVer) ([]Strategy, error) {
 
 	m.Debugf("Priority order: %s", priority)
 
-	strategies := make([]Strategy, 0)
+	var strategies []Strategy
 
 	var selectedStrategy string
 	var foundStrategy map[interface{}]interface{}
 	for _, try := range strings.Split(priority, ",") {
 		try = strings.TrimSpace(try)
-		if strategy, strategy_ok := m.Data.Strategies[try]; strategy_ok {
+		if strategy, strategyOk := m.Data.Strategies[try]; strategyOk {
 			selectedStrategy = try
 			foundStrategy = strategy
 
@@ -170,12 +170,12 @@ func (m *Manifest) LoadStrategies(utility NameVer) ([]Strategy, error) {
 			// fmt.Printf("%v\n", final)
 
 			// handle common keys
-			orig_os_arch_map, os_arch_map_ok := final["os_arch_map"]
+			origOsArchMap, osArchMapOk := final["os_arch_map"]
 
-			os_arch_map := make(map[string]string)
-			if os_arch_map_ok {
-				for k, v := range orig_os_arch_map.(map[interface{}]interface{}) {
-					os_arch_map[k.(string)] = v.(string)
+			osArchMap := make(map[string]string)
+			if osArchMapOk {
+				for k, v := range origOsArchMap.(map[interface{}]interface{}) {
+					osArchMap[k.(string)] = v.(string)
 				}
 			}
 
@@ -189,24 +189,24 @@ func (m *Manifest) LoadStrategies(utility NameVer) ([]Strategy, error) {
 
 			// handle strategy specific keys
 			if selectedStrategy == "docker" {
-				mount_pwd, mount_pwd_ok := final["mount_pwd"]
-				docker_conn, docker_conn_ok := final["docker_conn"]
-				interactive, interactive_ok := final["interactive"]
-				pid_host, pid_host_ok := final["pid_host"]
-				terminal, terminal_ok := final["terminal"]
-				image, image_ok := final["image"]
-				mount_pwd_as, mount_pwd_as_ok := final["mount_pwd_as"]
-				run_as_user, run_as_user_ok := final["run_as_user"]
+				mountPwd, mountPwdOk := final["mount_pwd"]
+				dockerConn, dockerConnOk := final["docker_conn"]
+				interactive, interactiveOk := final["interactive"]
+				pidHost, pidHostOk := final["pid_host"]
+				terminal, terminalOk := final["terminal"]
+				image, imageOk := final["image"]
+				mountPwdAs, mountPwdAsOk := final["mount_pwd_as"]
+				runAsUser, runAsUserOk := final["run_as_user"]
 
-				if !image_ok {
+				if !imageOk {
 					return strategies, errors.New("At least 'image' needed for docker strategy to work")
 				}
 
-				if !terminal_ok {
+				if !terminalOk {
 					terminal = ""
 				}
-				if !mount_pwd_as_ok {
-					mount_pwd_as = ""
+				if !mountPwdAsOk {
+					mountPwdAs = ""
 				}
 
 				strategies = append(strategies, DockerStrategy{
@@ -216,20 +216,20 @@ func (m *Manifest) LoadStrategies(utility NameVer) ([]Strategy, error) {
 						Desc:        m.Data.Desc,
 						Version:     final["version"].(string),
 						Image:       image.(string),
-						MountPwd:    mount_pwd_ok && mount_pwd.(bool),
-						DockerConn:  docker_conn_ok && docker_conn.(bool),
-						Interactive: !interactive_ok || interactive.(bool),
-						PidHost:     pid_host_ok && pid_host.(bool),
+						MountPwd:    mountPwdOk && mountPwd.(bool),
+						DockerConn:  dockerConnOk && dockerConn.(bool),
+						Interactive: !interactiveOk || interactive.(bool),
+						PidHost:     pidHostOk && pidHost.(bool),
 						Terminal:    terminal.(string),
-						MountPwdAs:  mount_pwd_as.(string),
-						RunAsUser:   run_as_user_ok && run_as_user.(bool),
-						OSArchMap:   os_arch_map,
+						MountPwdAs:  mountPwdAs.(string),
+						RunAsUser:   runAsUserOk && runAsUser.(bool),
+						OSArchMap:   osArchMap,
 					},
 				})
 			} else if selectedStrategy == "binary" {
-				base_url, base_url_ok := final["base_url"]
+				baseURL, baseURLOk := final["base_url"]
 
-				if !base_url_ok {
+				if !baseURLOk {
 					return strategies, errors.New("At least 'base_url' needed for binary strategy to work")
 				}
 
@@ -239,8 +239,8 @@ func (m *Manifest) LoadStrategies(utility NameVer) ([]Strategy, error) {
 						Name:      m.Data.Name,
 						Desc:      m.Data.Desc,
 						Version:   final["version"].(string),
-						BaseUrl:   base_url.(string),
-						OSArchMap: os_arch_map,
+						BaseURL:   baseURL.(string),
+						OSArchMap: osArchMap,
 					},
 				})
 			}

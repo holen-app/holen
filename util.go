@@ -18,7 +18,7 @@ func ParseName(utility string) NameVer {
 }
 
 func mergeMaps(m1, m2 map[interface{}]interface{}) map[interface{}]interface{} {
-	for k, _ := range m1 {
+	for k := range m1 {
 		if vv, ok := m2[k]; ok {
 			m1[k] = vv
 			delete(m2, k)

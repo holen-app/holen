@@ -58,7 +58,7 @@ type BinaryData struct {
 	Name      string
 	Desc      string
 	Version   string            `yaml:"version"`
-	BaseUrl   string            `yaml:"base_url"`
+	BaseURL   string            `yaml:"base_url"`
 	OSArchMap map[string]string `yaml:"os_arch_map"`
 }
 
@@ -149,7 +149,7 @@ func (bs BinaryStrategy) Run(args []string) error {
 	temp := bs.Templater(bs.Data.Version, bs.Data.OSArchMap, bs.System)
 	bs.Debugf("templater: %# v", pretty.Formatter(temp))
 
-	url, err := temp.Template(bs.Data.BaseUrl)
+	url, err := temp.Template(bs.Data.BaseURL)
 	if err != nil {
 		return errors.Wrap(err, "unable to template url")
 	}
