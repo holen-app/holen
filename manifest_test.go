@@ -39,6 +39,14 @@ func (ns NullSystem) Arch() string {
 	return runtime.GOARCH
 }
 
+func (ns NullSystem) UID() int {
+	return 1000
+}
+
+func (ns NullSystem) GID() int {
+	return 1000
+}
+
 func (ns NullSystem) FileExists(localPath string) bool {
 	return true
 }

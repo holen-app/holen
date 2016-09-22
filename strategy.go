@@ -40,10 +40,12 @@ type DockerData struct {
 	Version     string            `yaml:"version"`
 	Image       string            `yaml:"image"`
 	MountPwd    bool              `yaml:"mount_pwd"`
+	MountPwdAs  string            `yaml:"mount_pwd_as"`
 	DockerConn  bool              `yaml:"docker_conn"`
 	Interactive bool              `yaml:"interactive"`
 	Terminal    string            `yaml:"terminal"`
 	PidHost     bool              `yaml:"pid_host"`
+	RunAsUser   bool              `yaml:"run_as_user"`
 	OSArchMap   map[string]string `yaml:"os_arch_map"`
 }
 
@@ -96,6 +98,13 @@ func (ds DockerStrategy) Run(extraArgs []string) error {
 	}
 	if ds.Data.PidHost {
 		args = append(args, "--pid", "host")
+	}
+	if len(ds.Data.MountPwdAs) > 0 {
+		wd, _ := os.Getwd()
+		args = append(args, "--volume", fmt.Sprintf("%s:%s", wd, ds.Data.MountPwdAs))
+	}
+	if ds.Data.RunAsUser {
+		args = append(args, "-u", fmt.Sprintf("%d:%d", ds.UID(), ds.GID()))
 	}
 	if ds.Data.Terminal != "" {
 		// TODO: support 'auto' mode that autodetects if tty is present

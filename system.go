@@ -17,6 +17,8 @@ import (
 type System interface {
 	OS() string
 	Arch() string
+	UID() int
+	GID() int
 	FileExists(string) bool
 	MakeExecutable(string) error
 }
@@ -29,6 +31,14 @@ func (ds DefaultSystem) OS() string {
 
 func (ds DefaultSystem) Arch() string {
 	return runtime.GOARCH
+}
+
+func (ds DefaultSystem) UID() int {
+	return os.Getuid()
+}
+
+func (ds DefaultSystem) GID() int {
+	return os.Getgid()
 }
 
 func (ds DefaultSystem) FileExists(localPath string) bool {
