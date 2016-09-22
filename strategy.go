@@ -103,6 +103,10 @@ func (ds DockerStrategy) Run(extraArgs []string) error {
 		wd, _ := os.Getwd()
 		args = append(args, "--volume", fmt.Sprintf("%s:%s", wd, ds.Data.MountPwdAs))
 	}
+	if ds.Data.MountPwd {
+		wd, _ := os.Getwd()
+		args = append(args, "--volume", fmt.Sprintf("%s:%s", wd, wd))
+	}
 	if ds.Data.RunAsUser {
 		args = append(args, "-u", fmt.Sprintf("%d:%d", ds.UID(), ds.GID()))
 	}
