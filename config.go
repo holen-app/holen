@@ -5,6 +5,7 @@ import (
 	"fmt"
 )
 
+// ConfigCommand specifies options for the config subcommand.
 type ConfigCommand struct {
 	System bool `short:"s" long:"system" description:"Modify system level configuration."`
 	Unset  bool `short:"u" long:"unset" description:"Unset key."`
@@ -17,6 +18,7 @@ type ConfigCommand struct {
 
 var configCommand ConfigCommand
 
+// Execute handles setting, getting, and listing configuration values.
 func (x *ConfigCommand) Execute(args []string) error {
 	conf, err := NewDefaultConfigClient()
 	if err != nil {

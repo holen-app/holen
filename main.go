@@ -11,12 +11,14 @@ import (
 	"github.com/kardianos/osext"
 )
 
+// GlobalOptions are options that are used when holen is run directly.
 type GlobalOptions struct {
 	Quiet   func(string) `env:"HLN_QUIET" short:"q" long:"quiet" description:"Show as little information as possible."`
 	Verbose func(string) `env:"HLN_VERBOSE" short:"v" long:"verbose" description:"Show verbose debug information."`
 	LogJSON func(string) `env:"HLN_LOG_JSON" short:"j" long:"log-json" description:"Log in JSON format."`
 }
 
+// InlineOptions are options that are used when holen is run indirectly via a symlink.
 type InlineOptions struct {
 	Verbose func(string) `env:"HLN_VERBOSE" long:"hln-verbose" description:"Show verbose debug information."`
 	LogJSON func(string) `env:"HLN_LOG_JSON" long:"hln-log-json" description:"Log in JSON format."`
