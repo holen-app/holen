@@ -116,10 +116,10 @@ type ManifestData struct {
 type Manifest struct {
 	Logger
 	ConfigGetter
-	Data       ManifestData
-	Runner     Runner
-	System     System
-	Downloader Downloader
+	Runner
+	System
+	Downloader
+	Data ManifestData
 }
 
 func (m *Manifest) LoadStrategies(utility NameVer) ([]Strategy, error) {
