@@ -261,7 +261,9 @@ func (m *Manifest) Run(utility NameVer, args []string) error {
 
 	for _, strategy := range strategies {
 		err = strategy.Run(args)
-		if err != nil {
+		if err == nil {
+			break
+		} else {
 			// keep going if it's a reason to skip
 			if _, ok := err.(*SkipError); !ok {
 				return err
