@@ -1,66 +1,108 @@
 package main
 
-import "runtime"
+import "fmt"
 
-type NullConfigGetter struct{}
+type MemConfig struct {
+	Config map[string]string
+}
 
-func (ncg NullConfigGetter) Get(key string) (string, error) {
+func (mc *MemConfig) Get(key string) (string, error) {
+	if val, ok := mc.Config[key]; ok {
+		return val, nil
+	}
 	return "", nil
 }
 
-type NullLogger struct{}
+func (mc *MemConfig) Set(key, value string) {
+	if mc.Config == nil {
+		mc.Config = make(map[string]string)
+	}
 
-func (nl NullLogger) Debugf(str string, args ...interface{}) {
+	mc.Config[key] = value
 }
 
-func (nl NullLogger) Infof(str string, args ...interface{}) {
+type MemLogger struct {
+	Debugs []string
+	Infos  []string
+	Warns  []string
 }
 
-func (nl NullLogger) Warnf(str string, args ...interface{}) {
+func (ml *MemLogger) Debugf(str string, args ...interface{}) {
+	ml.Debugs = append(ml.Debugs, fmt.Sprintf(str, args...))
 }
 
-type NullRunner struct{}
+func (ml *MemLogger) Infof(str string, args ...interface{}) {
+	ml.Infos = append(ml.Infos, fmt.Sprintf(str, args...))
+}
 
-func (nr NullRunner) CheckCommand(command string, args []string) bool {
+func (ml *MemLogger) Warnf(str string, args ...interface{}) {
+	ml.Warns = append(ml.Warns, fmt.Sprintf(str, args...))
+}
+
+type MemRunner struct {
+	History []string
+}
+
+func (mr *MemRunner) CheckCommand(command string, args []string) bool {
 	return true
 }
 
-func (nr NullRunner) RunCommand(command string, args []string) error {
+func (mr *MemRunner) RunCommand(command string, args []string) error {
+	mr.History = append(mr.History, fmt.Sprint(append([]string{command}, args...)))
+
 	return nil
 }
 
-type NullDownloader struct{}
+type MemDownloader struct {
+	Files        map[string]string
+	DockerImages []string
+}
 
-func (nd NullDownloader) DownloadFile(url, path string) error {
+func (md *MemDownloader) DownloadFile(url, path string) error {
+	if md.Files == nil {
+		md.Files = make(map[string]string)
+	}
+
+	md.Files[url] = path
+
 	return nil
 }
 
-func (nd NullDownloader) PullDockerImage(image string) error {
+func (md *MemDownloader) PullDockerImage(image string) error {
+	md.DockerImages = append(md.DockerImages, image)
+
 	return nil
 }
 
-type NullSystem struct{}
-
-func (ns NullSystem) OS() string {
-	return runtime.GOOS
+type MemSystem struct {
+	MOS   string
+	MArch string
+	MUID  int
+	MGID  int
+	Files map[string]bool
 }
 
-func (ns NullSystem) Arch() string {
-	return runtime.GOARCH
+func (ms MemSystem) OS() string {
+	return ms.MOS
 }
 
-func (ns NullSystem) UID() int {
-	return 1000
+func (ms MemSystem) Arch() string {
+	return ms.MArch
 }
 
-func (ns NullSystem) GID() int {
-	return 1000
+func (ms MemSystem) UID() int {
+	return ms.MUID
 }
 
-func (ns NullSystem) FileExists(localPath string) bool {
-	return true
+func (ms MemSystem) GID() int {
+	return ms.MGID
 }
 
-func (ns NullSystem) MakeExecutable(localPath string) error {
+func (ms MemSystem) FileExists(localPath string) bool {
+	present, ok := ms.Files[localPath]
+	return ok && present
+}
+
+func (ms MemSystem) MakeExecutable(localPath string) error {
 	return nil
 }
