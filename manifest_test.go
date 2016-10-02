@@ -40,13 +40,13 @@ func TestRun(t *testing.T) {
 	err = manifest.Run(nameVer, []string{"."})
 	assert.Nil(err)
 
-	for _, foo := range logger.Debugs {
-		fmt.Println(foo)
-	}
-	for url, foo := range downloader.Files {
-		fmt.Println(url, foo)
-	}
-	for _, foo := range runner.History {
-		fmt.Println(foo)
-	}
+	localPath := path.Join(os.Getenv("HOME"), ".local/share/holen/bin/jq--1.5")
+	remoteUrl := "https://github.com/stedolan/jq/releases/download/jq-1.5/jq-linux64"
+
+	// check download
+	assert.Contains(downloader.Files, remoteUrl)
+	assert.Equal(downloader.Files[remoteUrl], localPath)
+
+	// check run
+	assert.Equal(runner.History[0], fmt.Sprintf("%s .", localPath))
 }
