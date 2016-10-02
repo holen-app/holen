@@ -1,6 +1,9 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 type MemConfig struct {
 	Config map[string]string
@@ -40,17 +43,48 @@ func (ml *MemLogger) Warnf(str string, args ...interface{}) {
 }
 
 type MemRunner struct {
-	History []string
+	History       []string
+	FailCheckCmds map[string]bool
+	FailCmds      map[string]error
 }
 
 func (mr *MemRunner) CheckCommand(command string, args []string) bool {
-	return true
+	fail, ok := mr.FailCheckCmds[strings.Join(append([]string{command}, args...), " ")]
+
+	if !ok {
+		return true
+	} else {
+		return !fail
+	}
 }
 
 func (mr *MemRunner) RunCommand(command string, args []string) error {
-	mr.History = append(mr.History, fmt.Sprint(append([]string{command}, args...)))
+	fullCommand := strings.Join(append([]string{command}, args...), " ")
+	mr.History = append(mr.History, fullCommand)
 
-	return nil
+	e, ok := mr.FailCmds[fullCommand]
+
+	if !ok {
+		return nil
+	} else {
+		return e
+	}
+}
+
+func (mr *MemRunner) FailCheck(fullCommand string) {
+	if mr.FailCheckCmds == nil {
+		mr.FailCheckCmds = make(map[string]bool)
+	}
+
+	mr.FailCheckCmds[fullCommand] = true
+}
+
+func (mr *MemRunner) FailCommand(fullCommand string, err error) {
+	if mr.FailCmds == nil {
+		mr.FailCmds = make(map[string]error)
+	}
+
+	mr.FailCmds[fullCommand] = err
 }
 
 type MemDownloader struct {
