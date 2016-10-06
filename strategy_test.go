@@ -20,7 +20,7 @@ type TestUtils struct {
 
 func newDockerStrategy() (*TestUtils, *DockerStrategy) {
 	tu := &TestUtils{
-		MemSystem:     &MemSystem{runtime.GOOS, runtime.GOARCH, 1000, 1000, make(map[string]bool)},
+		MemSystem:     &MemSystem{runtime.GOOS, runtime.GOARCH, 1000, 1000, make(map[string]bool), []string{}},
 		MemLogger:     &MemLogger{},
 		MemConfig:     &MemConfig{},
 		MemDownloader: &MemDownloader{},
@@ -104,7 +104,7 @@ func TestDockerCommandFailed(t *testing.T) {
 
 func newBinaryStrategy() (*TestUtils, *BinaryStrategy) {
 	tu := &TestUtils{
-		MemSystem:     &MemSystem{runtime.GOOS, runtime.GOARCH, 1000, 1000, make(map[string]bool)},
+		MemSystem:     &MemSystem{runtime.GOOS, runtime.GOARCH, 1000, 1000, make(map[string]bool), []string{}},
 		MemLogger:     &MemLogger{},
 		MemConfig:     &MemConfig{},
 		MemDownloader: &MemDownloader{},
@@ -141,6 +141,9 @@ func TestBinarySimple(t *testing.T) {
 	// check download
 	assert.Contains(tu.MemDownloader.Files, remoteUrl)
 	assert.Equal(tu.MemDownloader.Files[remoteUrl], binPath)
+
+	assert.Contains(tu.MemSystem.UserMessages[0], "Downloading")
+	assert.Contains(tu.MemSystem.UserMessages[0], remoteUrl)
 
 	assert.Equal(tu.MemRunner.History[0], fmt.Sprintf("%s first second", binPath))
 }

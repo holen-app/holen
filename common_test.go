@@ -109,11 +109,12 @@ func (md *MemDownloader) PullDockerImage(image string) error {
 }
 
 type MemSystem struct {
-	MOS   string
-	MArch string
-	MUID  int
-	MGID  int
-	Files map[string]bool
+	MOS          string
+	MArch        string
+	MUID         int
+	MGID         int
+	Files        map[string]bool
+	UserMessages []string
 }
 
 func (ms MemSystem) OS() string {
@@ -139,4 +140,8 @@ func (ms MemSystem) FileExists(localPath string) bool {
 
 func (ms MemSystem) MakeExecutable(localPath string) error {
 	return nil
+}
+
+func (ms *MemSystem) UserMessage(message string, args ...interface{}) {
+	ms.UserMessages = append(ms.UserMessages, fmt.Sprintf(message, args...))
 }
