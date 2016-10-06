@@ -17,10 +17,13 @@ type Templater struct {
 // Template takes an input string and templates it with the data contained in
 // the Templater struct.
 func (temp Templater) Template(input string) (string, error) {
-	tmpl := template.Must(template.New("temp").Parse(input))
+	tmpl, err := template.New("temp").Parse(input)
+	if err != nil {
+		return "", err
+	}
 	var output bytes.Buffer
 
-	err := tmpl.Execute(&output, temp)
+	err = tmpl.Execute(&output, temp)
 	if err != nil {
 		return "", err
 	}

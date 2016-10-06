@@ -119,7 +119,7 @@ func (ds DockerStrategy) Run(extraArgs []string) error {
 	args = append(args, "--rm", image)
 	args = append(args, extraArgs...)
 
-	ds.RunCommand("docker", args)
+	err = ds.RunCommand("docker", args)
 	if err != nil {
 		return errors.Wrap(err, "can't run image")
 	}
