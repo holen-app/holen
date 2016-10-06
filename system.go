@@ -21,6 +21,7 @@ type System interface {
 	GID() int
 	FileExists(string) bool
 	MakeExecutable(string) error
+	UserMessage(string, ...interface{})
 }
 
 type DefaultSystem struct{}
@@ -50,6 +51,10 @@ func (ds DefaultSystem) FileExists(localPath string) bool {
 
 func (ds DefaultSystem) MakeExecutable(localPath string) error {
 	return os.Chmod(localPath, 0755)
+}
+
+func (ds DefaultSystem) UserMessage(message string, args ...interface{}) {
+	fmt.Fprintf(os.Stderr, message, args...)
 }
 
 type Logger interface {

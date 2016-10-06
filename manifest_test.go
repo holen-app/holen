@@ -32,7 +32,7 @@ func TestRun(t *testing.T) {
 
 	runner := &MemRunner{}
 	downloader := &MemDownloader{}
-	system := &MemSystem{runtime.GOOS, runtime.GOARCH, 1000, 1000, make(map[string]bool)}
+	system := &MemSystem{runtime.GOOS, runtime.GOARCH, 1000, 1000, make(map[string]bool), []string{}}
 	manifest.Runner = runner
 	manifest.Downloader = downloader
 	manifest.System = system

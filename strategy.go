@@ -161,6 +161,7 @@ func (bs BinaryStrategy) Run(args []string) error {
 	localPath := filepath.Join(downloadPath, fmt.Sprintf("%s--%s", bs.Data.Name, bs.Data.Version))
 
 	if !bs.FileExists(localPath) {
+		bs.UserMessage("Downloading %s...\n", url)
 		err = bs.DownloadFile(url, localPath)
 		if err != nil {
 			return errors.Wrap(err, "can't download binary")
