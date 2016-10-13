@@ -6,7 +6,7 @@ strategies:
         versions:
           - version: '1.5'
     binary:
-        base_url: https://github.com/stedolan/jq/releases/download/jq-{{.Version}}/jq-{{.MappedArch}}
+        base_url: https://github.com/stedolan/jq/releases/download/jq-{{.Version}}/jq-{{.MappedOSArch}}
         os_arch_map:
             windows_amd64: win64.exe
             linux_amd64: linux64

@@ -22,11 +22,11 @@ func (sc *StrategyCommon) Templater(version string, archMap map[string]string, s
 	sc.Debugf("Arch key: %s", archKey)
 	value := archMap[archKey]
 	return Templater{
-		Version:    version,
-		OS:         system.OS(),
-		Arch:       system.Arch(),
-		OSArch:     archKey,
-		MappedArch: value,
+		Version:      version,
+		OS:           system.OS(),
+		Arch:         system.Arch(),
+		OSArch:       archKey,
+		MappedOSArch: value,
 	}
 }
 

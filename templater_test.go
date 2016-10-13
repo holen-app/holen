@@ -10,11 +10,11 @@ func TestTemplater(t *testing.T) {
 	assert := assert.New(t)
 
 	temp := Templater{
-		Version:    "1.7",
-		OS:         "linux",
-		Arch:       "amd64",
-		OSArch:     "linux_amd64",
-		MappedArch: "x86_64",
+		Version:      "1.7",
+		OS:           "linux",
+		Arch:         "amd64",
+		OSArch:       "linux_amd64",
+		MappedOSArch: "x86_64",
 	}
 
 	var output string
