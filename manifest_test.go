@@ -17,7 +17,7 @@ func TestRun(t *testing.T) {
 	nameVer := ParseName("jq")
 
 	wd, _ := os.Getwd()
-	manifestFinder, err := NewManifestFinder(path.Join(wd, "testdata"))
+	manifestFinder, err := NewManifestFinder(path.Join(wd, "testdata", "manifests"))
 	assert.Nil(err)
 	assert.NotNil(manifestFinder)
 
