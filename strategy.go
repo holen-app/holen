@@ -233,6 +233,8 @@ func (bs BinaryStrategy) Run(args []string) error {
 			if err != nil {
 				return errors.Wrap(err, "unable to move binary into position")
 			}
+
+			os.RemoveAll(tempdir)
 		} else {
 			bs.UserMessage("Downloading %s...\n", dlURL)
 			err = bs.DownloadFile(dlURL, localPath)
