@@ -2,7 +2,10 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
+	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 
 	"github.com/kr/pretty"
@@ -55,11 +58,12 @@ type DockerStrategy struct {
 }
 
 type BinaryData struct {
-	Name      string
-	Desc      string
-	Version   string            `yaml:"version"`
-	BaseURL   string            `yaml:"base_url"`
-	OSArchMap map[string]string `yaml:"os_arch_map"`
+	Name       string
+	Desc       string
+	Version    string            `yaml:"version"`
+	BaseURL    string            `yaml:"base_url"`
+	UnpackPath string            `yaml:"unpack_path"`
+	OSArchMap  map[string]string `yaml:"os_arch_map"`
 }
 
 type BinaryStrategy struct {
@@ -127,29 +131,59 @@ func (ds DockerStrategy) Run(extraArgs []string) error {
 	return nil
 }
 
-func (bs BinaryStrategy) DownloadPath() (string, error) {
-	var downloadPath string
-	if configDownloadPath, err := bs.Get("binary.download"); err == nil && len(configDownloadPath) > 0 {
-		downloadPath = configDownloadPath
+func (bs BinaryStrategy) localHolenPath() (string, error) {
+	var holenPath string
+	if configDataPath, err := bs.Get("holen.datapath"); err == nil && len(configDataPath) > 0 {
+		holenPath = configDataPath
 	} else if xdgDataHome := os.Getenv("XDG_DATA_HOME"); len(xdgDataHome) > 0 {
-		downloadPath = filepath.Join(xdgDataHome, "holen", "bin")
+		holenPath = filepath.Join(xdgDataHome, "holen")
 	} else {
 		var home string
 		if home = os.Getenv("HOME"); len(home) == 0 {
 			return "", fmt.Errorf("$HOME environment variable not found")
 		}
-		downloadPath = filepath.Join(home, ".local", "share", "holen", "bin")
+		holenPath = filepath.Join(home, ".local", "share", "holen")
+	}
+	os.MkdirAll(holenPath, 0755)
+
+	return holenPath, nil
+}
+
+func (bs BinaryStrategy) DownloadPath() (string, error) {
+	var downloadPath string
+	if configDownloadPath, err := bs.Get("binary.download"); err == nil && len(configDownloadPath) > 0 {
+		downloadPath = configDownloadPath
+	} else {
+		holenPath, err := bs.localHolenPath()
+		if err != nil {
+			return "", errors.Wrap(err, "unable to get holen data path")
+		}
+		downloadPath = filepath.Join(holenPath, "bin")
 	}
 	os.MkdirAll(downloadPath, 0755)
 
 	return downloadPath, nil
 }
 
+func (bs BinaryStrategy) TempPath() (string, error) {
+	var tempPath string
+
+	holenPath, err := bs.localHolenPath()
+	if err != nil {
+		return "", errors.Wrap(err, "unable to get holen data path")
+	}
+
+	tempPath = filepath.Join(holenPath, "tmp")
+	os.MkdirAll(tempPath, 0755)
+
+	return tempPath, nil
+}
+
 func (bs BinaryStrategy) Run(args []string) error {
 	temp := bs.Templater(bs.Data.Version, bs.Data.OSArchMap, bs.System)
 	bs.Debugf("templater: %# v", pretty.Formatter(temp))
 
-	url, err := temp.Template(bs.Data.BaseURL)
+	dlURL, err := temp.Template(bs.Data.BaseURL)
 	if err != nil {
 		return errors.Wrap(err, "unable to template url")
 	}
@@ -161,10 +195,50 @@ func (bs BinaryStrategy) Run(args []string) error {
 	localPath := filepath.Join(downloadPath, fmt.Sprintf("%s--%s", bs.Data.Name, bs.Data.Version))
 
 	if !bs.FileExists(localPath) {
-		bs.UserMessage("Downloading %s...\n", url)
-		err = bs.DownloadFile(url, localPath)
-		if err != nil {
-			return errors.Wrap(err, "can't download binary")
+		if len(bs.Data.UnpackPath) > 0 {
+			tempPath, err := bs.TempPath()
+			tempdir, err := ioutil.TempDir(tempPath, "holen")
+			if err != nil {
+				return errors.Wrap(err, "unable to make temporary directory")
+			}
+			// defer os.RemoveAll(tempdir)
+
+			u, err := url.Parse(dlURL)
+			if err != nil {
+				return errors.Wrap(err, "unable to parse url")
+			}
+
+			fileName := path.Base(u.Path)
+			archPath := filepath.Join(tempdir, fileName)
+			unpackedPath := filepath.Join(tempdir, "unpacked")
+
+			bs.UserMessage("Downloading %s...\n", dlURL)
+			err = bs.DownloadFile(dlURL, archPath)
+			if err != nil {
+				return errors.Wrap(err, "can't download archive")
+			}
+
+			err = bs.UnpackArchive(archPath, unpackedPath)
+			if err != nil {
+				return errors.Wrap(err, "unable to unpack archive")
+			}
+
+			unpackPath, err := temp.Template(bs.Data.UnpackPath)
+			if err != nil {
+				return errors.Wrap(err, "unable to template unpack_path")
+			}
+			binPath := filepath.Join(unpackedPath, unpackPath)
+
+			err = os.Rename(binPath, localPath)
+			if err != nil {
+				return errors.Wrap(err, "unable to move binary into position")
+			}
+		} else {
+			bs.UserMessage("Downloading %s...\n", dlURL)
+			err = bs.DownloadFile(dlURL, localPath)
+			if err != nil {
+				return errors.Wrap(err, "can't download binary")
+			}
 		}
 
 		err = bs.MakeExecutable(localPath)

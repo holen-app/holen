@@ -228,19 +228,24 @@ func (m *Manifest) LoadStrategies(utility NameVer) ([]Strategy, error) {
 				})
 			} else if selectedStrategy == "binary" {
 				baseURL, baseURLOk := final["base_url"]
+				unpackPath, unpackPathOk := final["unpack_path"]
 
 				if !baseURLOk {
 					return strategies, errors.New("At least 'base_url' needed for binary strategy to work")
+				}
+				if !unpackPathOk {
+					unpackPath = ""
 				}
 
 				strategies = append(strategies, BinaryStrategy{
 					StrategyCommon: commonUtility,
 					Data: BinaryData{
-						Name:      m.Data.Name,
-						Desc:      m.Data.Desc,
-						Version:   final["version"].(string),
-						BaseURL:   baseURL.(string),
-						OSArchMap: osArchMap,
+						Name:       m.Data.Name,
+						Desc:       m.Data.Desc,
+						Version:    final["version"].(string),
+						BaseURL:    baseURL.(string),
+						UnpackPath: unpackPath.(string),
+						OSArchMap:  osArchMap,
 					},
 				})
 			}

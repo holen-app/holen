@@ -11,6 +11,7 @@ import (
 	"syscall"
 
 	"github.com/Sirupsen/logrus"
+	"github.com/mholt/archiver"
 	"github.com/pkg/errors"
 )
 
@@ -22,6 +23,7 @@ type System interface {
 	FileExists(string) bool
 	MakeExecutable(string) error
 	UserMessage(string, ...interface{})
+	UnpackArchive(string, string) error
 }
 
 type DefaultSystem struct{}
@@ -55,6 +57,26 @@ func (ds DefaultSystem) MakeExecutable(localPath string) error {
 
 func (ds DefaultSystem) UserMessage(message string, args ...interface{}) {
 	fmt.Fprintf(os.Stderr, message, args...)
+}
+
+func (ds DefaultSystem) UnpackArchive(archive, destPath string) error {
+	unpackSuccess := false
+	for _, format := range archiver.SupportedFormats {
+		if format.Match(archive) {
+			err := format.Open(archive, destPath)
+			if err != nil {
+				return errors.Wrap(err, "error unpacking archive")
+			}
+			unpackSuccess = true
+			break
+		}
+	}
+
+	if !unpackSuccess {
+		return fmt.Errorf("archive format not supported")
+	}
+
+	return nil
 }
 
 type Logger interface {

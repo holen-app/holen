@@ -20,7 +20,7 @@ type TestUtils struct {
 
 func newDockerStrategy() (*TestUtils, *DockerStrategy) {
 	tu := &TestUtils{
-		MemSystem:     &MemSystem{runtime.GOOS, runtime.GOARCH, 1000, 1000, make(map[string]bool), []string{}},
+		MemSystem:     &MemSystem{runtime.GOOS, runtime.GOARCH, 1000, 1000, make(map[string]bool), []string{}, make(map[string][]string)},
 		MemLogger:     &MemLogger{},
 		MemConfig:     &MemConfig{},
 		MemDownloader: &MemDownloader{},
@@ -104,7 +104,7 @@ func TestDockerCommandFailed(t *testing.T) {
 
 func newBinaryStrategy() (*TestUtils, *BinaryStrategy) {
 	tu := &TestUtils{
-		MemSystem:     &MemSystem{runtime.GOOS, runtime.GOARCH, 1000, 1000, make(map[string]bool), []string{}},
+		MemSystem:     &MemSystem{runtime.GOOS, runtime.GOARCH, 1000, 1000, make(map[string]bool), []string{}, make(map[string][]string)},
 		MemLogger:     &MemLogger{},
 		MemConfig:     &MemConfig{},
 		MemDownloader: &MemDownloader{},
@@ -157,6 +157,32 @@ func TestBinaryBadImageTemplate(t *testing.T) {
 	err := tb.Run([]string{"first", "second"})
 	assert.NotNil(err)
 	assert.Contains(err.Error(), "unclosed action")
+}
+
+func TestBinaryArchive(t *testing.T) {
+
+	assert := assert.New(t)
+
+	tu, tb := newBinaryStrategy()
+	tb.Data.UnpackPath = "testbinary"
+	tb.Data.BaseURL = "https://github.com/testbinary/bin/releases/download/bin-{{.Version}}/testbinary-{{.OSArch}}.zip"
+	tu.MemSystem.ArchiveFiles["testbinary-linux_amd64.zip"] = []string{"testbinary"}
+
+	err := tb.Run([]string{"first", "second"})
+	assert.Nil(err)
+
+	binPath := path.Join(os.Getenv("HOME"), ".local/share/holen/bin/testbinary--2.1")
+	remoteUrl := "https://github.com/testbinary/bin/releases/download/bin-2.1/testbinary-linux_amd64.zip"
+
+	// check download
+	assert.Contains(tu.MemDownloader.Files, remoteUrl)
+	assert.Contains(tu.MemDownloader.Files[remoteUrl], path.Join(os.Getenv("HOME"), ".local/share/holen/tmp"))
+	assert.Contains(tu.MemDownloader.Files[remoteUrl], "testbinary-linux_amd64.zip")
+
+	assert.Contains(tu.MemSystem.UserMessages[0], "Downloading")
+	assert.Contains(tu.MemSystem.UserMessages[0], remoteUrl)
+
+	assert.Equal(tu.MemRunner.History[0], fmt.Sprintf("%s first second", binPath))
 }
 
 func TestBinaryDownloadPath(t *testing.T) {

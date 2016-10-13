@@ -2,6 +2,9 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"path"
+	"path/filepath"
 	"strings"
 )
 
@@ -115,6 +118,7 @@ type MemSystem struct {
 	MGID         int
 	Files        map[string]bool
 	UserMessages []string
+	ArchiveFiles map[string][]string
 }
 
 func (ms MemSystem) OS() string {
@@ -144,4 +148,18 @@ func (ms MemSystem) MakeExecutable(localPath string) error {
 
 func (ms *MemSystem) UserMessage(message string, args ...interface{}) {
 	ms.UserMessages = append(ms.UserMessages, fmt.Sprintf(message, args...))
+}
+
+func (ms *MemSystem) UnpackArchive(archive, destPath string) error {
+	os.MkdirAll(destPath, 0755)
+
+	baseName := path.Base(archive)
+
+	// this only handles files in the "root" of the archive, no subpaths
+	if paths, ok := ms.ArchiveFiles[baseName]; ok {
+		for _, path := range paths {
+			os.Create(filepath.Join(destPath, path))
+		}
+	}
+	return nil
 }

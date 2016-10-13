@@ -16,6 +16,36 @@
 			"revisionTime": "2016-06-15T09:26:46Z"
 		},
 		{
+			"checksumSHA1": "Mrmbqq23BIzwocC3m1wk479o35s=",
+			"path": "github.com/dsnet/compress",
+			"revision": "b9aab3c6a04eef14c56384b4ad065e7b73438862",
+			"revisionTime": "2016-07-04T02:36:33Z"
+		},
+		{
+			"checksumSHA1": "X/WMn+fZp9aHdNMw7ww4cKoF110=",
+			"path": "github.com/dsnet/compress/bzip2",
+			"revision": "b9aab3c6a04eef14c56384b4ad065e7b73438862",
+			"revisionTime": "2016-07-04T02:36:33Z"
+		},
+		{
+			"checksumSHA1": "42OeJeVPQz9I+gI5fT8Ms5XuiRk=",
+			"path": "github.com/dsnet/compress/bzip2/internal/sais",
+			"revision": "b9aab3c6a04eef14c56384b4ad065e7b73438862",
+			"revisionTime": "2016-07-04T02:36:33Z"
+		},
+		{
+			"checksumSHA1": "JfH7Imr1EvvynPrzjneBaud2AYg=",
+			"path": "github.com/dsnet/compress/internal",
+			"revision": "b9aab3c6a04eef14c56384b4ad065e7b73438862",
+			"revisionTime": "2016-07-04T02:36:33Z"
+		},
+		{
+			"checksumSHA1": "9kYWiseN21UfmXFRPQpUxb5V2Z4=",
+			"path": "github.com/dsnet/compress/internal/prefix",
+			"revision": "b9aab3c6a04eef14c56384b4ad065e7b73438862",
+			"revisionTime": "2016-07-04T02:36:33Z"
+		},
+		{
 			"checksumSHA1": "b8ntOW4MlKN7Pik6T9uCYIpPcgI=",
 			"path": "github.com/jessevdk/go-flags",
 			"revision": "4cc2832a6e6d1d3b815e2b9d544b2a4dfb3ce8fa",
@@ -38,6 +68,18 @@
 			"path": "github.com/kr/text",
 			"revision": "7cafcd837844e784b526369c9bce262804aebc60",
 			"revisionTime": "2016-05-04T02:26:26Z"
+		},
+		{
+			"checksumSHA1": "+vzibXxz1cFhi5rFJxqrYgCiK0Q=",
+			"path": "github.com/mholt/archiver",
+			"revision": "4a8a092653655d29c8e091cf2ecf91cbe697f0de",
+			"revisionTime": "2016-10-13T14:29:18Z"
+		},
+		{
+			"checksumSHA1": "la2NDYufRvbKRB+HLs3z2hCSv3M=",
+			"path": "github.com/nwaples/rardecode",
+			"revision": "f94841372ddc36be531a5c3e1206238e32e93d74",
+			"revisionTime": "2016-07-23T08:30:21Z"
 		},
 		{
 			"checksumSHA1": "Hky3u+8Rqum+wB5BHMj0A8ZmT4g=",
