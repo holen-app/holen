@@ -201,7 +201,7 @@ func (bs BinaryStrategy) Run(args []string) error {
 			if err != nil {
 				return errors.Wrap(err, "unable to make temporary directory")
 			}
-			// defer os.RemoveAll(tempdir)
+			defer os.RemoveAll(tempdir)
 
 			u, err := url.Parse(dlURL)
 			if err != nil {
