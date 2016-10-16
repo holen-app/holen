@@ -6,17 +6,22 @@ strategies:
         versions:
           - version: '1.5'
     binary:
-        base_url: https://github.com/stedolan/jq/releases/download/jq-{{.Version}}/jq-{{.MappedOSArch}}
-        os_arch_map:
-            windows_amd64: win64.exe
-            linux_amd64: linux64
-            darwin_amd64: osx-amd64
+        base_url: https://github.com/stedolan/jq/releases/download/jq-{{.Version}}/jq-{{.OSArchData.ext}}
+        os_arch:
+            windows_amd64:
+                ext: win64.exe
+            linux_amd64:
+                ext: linux64
+            darwin_amd64:
+                ext: osx-amd64
         versions:
           - version: '1.5'
           - version: '1.4'
-            os_arch_map:
-                windows_amd64: win64.exe
-                linux_amd64: linux-x86_64
-                darwin_amd64: osx-x86_64
-
+            os_arch:
+                windows_amd64:
+                    ext: win64.exe
+                linux_amd64:
+                    ext: linux-x86_64
+                darwin_amd64:
+                    ext: osx-x86_64
 ...

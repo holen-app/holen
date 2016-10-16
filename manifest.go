@@ -170,12 +170,18 @@ func (m *Manifest) LoadStrategies(utility NameVer) ([]Strategy, error) {
 			// fmt.Printf("%v\n", final)
 
 			// handle common keys
-			origOsArchMap, osArchMapOk := final["os_arch_map"]
+			origOsArch, osArchMapOk := final["os_arch"]
 
-			osArchMap := make(map[string]string)
+			osArchData := make(map[string]map[string]string)
 			if osArchMapOk {
-				for k, v := range origOsArchMap.(map[interface{}]interface{}) {
-					osArchMap[k.(string)] = v.(string)
+				for k, v := range origOsArch.(map[interface{}]interface{}) {
+					archMap := make(map[string]string)
+					if v != nil {
+						for k2, v2 := range v.(map[interface{}]interface{}) {
+							archMap[k2.(string)] = v2.(string)
+						}
+					}
+					osArchData[k.(string)] = archMap
 				}
 			}
 
@@ -223,7 +229,7 @@ func (m *Manifest) LoadStrategies(utility NameVer) ([]Strategy, error) {
 						Terminal:    terminal.(string),
 						MountPwdAs:  mountPwdAs.(string),
 						RunAsUser:   runAsUserOk && runAsUser.(bool),
-						OSArchMap:   osArchMap,
+						OSArchData:  osArchData,
 					},
 				})
 			} else if selectedStrategy == "binary" {
@@ -245,7 +251,7 @@ func (m *Manifest) LoadStrategies(utility NameVer) ([]Strategy, error) {
 						Version:    final["version"].(string),
 						BaseURL:    baseURL.(string),
 						UnpackPath: unpackPath.(string),
-						OSArchMap:  osArchMap,
+						OSArchData: osArchData,
 					},
 				})
 			}

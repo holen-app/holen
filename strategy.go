@@ -20,16 +20,16 @@ type StrategyCommon struct {
 	Runner
 }
 
-func (sc *StrategyCommon) Templater(version string, archMap map[string]string, system System) Templater {
+func (sc *StrategyCommon) Templater(version string, osArchData map[string]map[string]string, system System) Templater {
 	archKey := fmt.Sprintf("%s_%s", system.OS(), system.Arch())
 	sc.Debugf("Arch key: %s", archKey)
-	value := archMap[archKey]
+	value := osArchData[archKey]
 	return Templater{
-		Version:      version,
-		OS:           system.OS(),
-		Arch:         system.Arch(),
-		OSArch:       archKey,
-		MappedOSArch: value,
+		Version:    version,
+		OS:         system.OS(),
+		Arch:       system.Arch(),
+		OSArch:     archKey,
+		OSArchData: value,
 	}
 }
 
@@ -40,16 +40,16 @@ type Strategy interface {
 type DockerData struct {
 	Name        string
 	Desc        string
-	Version     string            `yaml:"version"`
-	Image       string            `yaml:"image"`
-	MountPwd    bool              `yaml:"mount_pwd"`
-	MountPwdAs  string            `yaml:"mount_pwd_as"`
-	DockerConn  bool              `yaml:"docker_conn"`
-	Interactive bool              `yaml:"interactive"`
-	Terminal    string            `yaml:"terminal"`
-	PidHost     bool              `yaml:"pid_host"`
-	RunAsUser   bool              `yaml:"run_as_user"`
-	OSArchMap   map[string]string `yaml:"os_arch_map"`
+	Version     string                       `yaml:"version"`
+	Image       string                       `yaml:"image"`
+	MountPwd    bool                         `yaml:"mount_pwd"`
+	MountPwdAs  string                       `yaml:"mount_pwd_as"`
+	DockerConn  bool                         `yaml:"docker_conn"`
+	Interactive bool                         `yaml:"interactive"`
+	Terminal    string                       `yaml:"terminal"`
+	PidHost     bool                         `yaml:"pid_host"`
+	RunAsUser   bool                         `yaml:"run_as_user"`
+	OSArchData  map[string]map[string]string `yaml:"os_arch_map"`
 }
 
 type DockerStrategy struct {
@@ -60,10 +60,10 @@ type DockerStrategy struct {
 type BinaryData struct {
 	Name       string
 	Desc       string
-	Version    string            `yaml:"version"`
-	BaseURL    string            `yaml:"base_url"`
-	UnpackPath string            `yaml:"unpack_path"`
-	OSArchMap  map[string]string `yaml:"os_arch_map"`
+	Version    string                       `yaml:"version"`
+	BaseURL    string                       `yaml:"base_url"`
+	UnpackPath string                       `yaml:"unpack_path"`
+	OSArchData map[string]map[string]string `yaml:"os_arch_map"`
 }
 
 type BinaryStrategy struct {
@@ -78,7 +78,7 @@ func (ds DockerStrategy) Run(extraArgs []string) error {
 		return &SkipError{"docker not available"}
 	}
 
-	temp := ds.Templater(ds.Data.Version, ds.Data.OSArchMap, ds.System)
+	temp := ds.Templater(ds.Data.Version, ds.Data.OSArchData, ds.System)
 	ds.Debugf("templater: %# v", pretty.Formatter(temp))
 
 	image, err := temp.Template(ds.Data.Image)
@@ -180,7 +180,7 @@ func (bs BinaryStrategy) TempPath() (string, error) {
 }
 
 func (bs BinaryStrategy) Run(args []string) error {
-	temp := bs.Templater(bs.Data.Version, bs.Data.OSArchMap, bs.System)
+	temp := bs.Templater(bs.Data.Version, bs.Data.OSArchData, bs.System)
 	bs.Debugf("templater: %# v", pretty.Formatter(temp))
 
 	dlURL, err := temp.Template(bs.Data.BaseURL)

@@ -7,11 +7,11 @@ import (
 
 // Templater contains fields for each piece of data that can be templated.
 type Templater struct {
-	Version      string
-	OS           string
-	Arch         string
-	OSArch       string
-	MappedOSArch string
+	Version    string
+	OS         string
+	Arch       string
+	OSArch     string
+	OSArchData map[string]string
 }
 
 // Template takes an input string and templates it with the data contained in

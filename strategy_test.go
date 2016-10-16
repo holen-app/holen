@@ -35,11 +35,11 @@ func newDockerStrategy() (*TestUtils, *DockerStrategy) {
 			Runner:       tu.MemRunner,
 		},
 		Data: DockerData{
-			Name:      "testdocker",
-			Desc:      "Test Docker Program",
-			Version:   "1.9",
-			Image:     "testdocker:{{.Version}}",
-			OSArchMap: make(map[string]string),
+			Name:       "testdocker",
+			Desc:       "Test Docker Program",
+			Version:    "1.9",
+			Image:      "testdocker:{{.Version}}",
+			OSArchData: make(map[string]map[string]string),
 		},
 	}
 }
@@ -119,11 +119,11 @@ func newBinaryStrategy() (*TestUtils, *BinaryStrategy) {
 			Runner:       tu.MemRunner,
 		},
 		Data: BinaryData{
-			Name:      "testbinary",
-			Desc:      "Test Binary Program",
-			Version:   "2.1",
-			BaseURL:   "https://github.com/testbinary/bin/releases/download/bin-{{.Version}}/jq-{{.OSArch}}",
-			OSArchMap: make(map[string]string),
+			Name:       "testbinary",
+			Desc:       "Test Binary Program",
+			Version:    "2.1",
+			BaseURL:    "https://github.com/testbinary/bin/releases/download/bin-{{.Version}}/jq-{{.OSArch}}",
+			OSArchData: make(map[string]map[string]string),
 		},
 	}
 }

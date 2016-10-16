@@ -10,11 +10,11 @@ func TestTemplater(t *testing.T) {
 	assert := assert.New(t)
 
 	temp := Templater{
-		Version:      "1.7",
-		OS:           "linux",
-		Arch:         "amd64",
-		OSArch:       "linux_amd64",
-		MappedOSArch: "x86_64",
+		Version:    "1.7",
+		OS:         "linux",
+		Arch:       "amd64",
+		OSArch:     "linux_amd64",
+		OSArchData: map[string]string{"ext": "Lin64"},
 	}
 
 	var output string
@@ -33,4 +33,8 @@ func TestTemplater(t *testing.T) {
 	output, err = temp.Template("{{.Version}}")
 	assert.Nil(err)
 	assert.Equal(output, "1.7")
+
+	output, err = temp.Template("{{.OSArchData.ext}}")
+	assert.Nil(err)
+	assert.Equal(output, "Lin64")
 }
