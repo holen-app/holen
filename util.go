@@ -20,7 +20,13 @@ func ParseName(utility string) NameVer {
 func mergeMaps(m1, m2 map[interface{}]interface{}) map[interface{}]interface{} {
 	for k := range m1 {
 		if vv, ok := m2[k]; ok {
-			m1[k] = vv
+			if vv == nil {
+				delete(m1, k)
+			} else if _, typeOk := vv.(map[interface{}]interface{}); typeOk {
+				m1[k] = mergeMaps(m1[k].(map[interface{}]interface{}), vv.(map[interface{}]interface{}))
+			} else {
+				m1[k] = vv
+			}
 			delete(m2, k)
 		}
 	}
