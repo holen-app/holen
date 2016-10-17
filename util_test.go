@@ -1,6 +1,9 @@
 package main
 
 import (
+	"io/ioutil"
+	"os"
+	"path"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -175,4 +178,30 @@ func TestMergeMaps(t *testing.T) {
 		assert.Equal(mergeMaps(test.map1, test.map2), test.result)
 	}
 
+}
+
+func TestHashFile(t *testing.T) {
+	assert := assert.New(t)
+
+	tempdir, _ := ioutil.TempDir("", "hash")
+	defer os.RemoveAll(tempdir)
+
+	filePath := path.Join(tempdir, "testfile")
+
+	assert.Nil(ioutil.WriteFile(filePath, []byte("test contents\n"), 0755))
+
+	var err error
+	var sum string
+
+	sum, err = hashFile("md5", filePath)
+	assert.Nil(err)
+	assert.Equal("1b3c032e3e4eaad23401e1568879f150", sum)
+
+	sum, err = hashFile("sha1", filePath)
+	assert.Nil(err)
+	assert.Equal("40b44f15b4b6690a90792137a03d57c4d2918271", sum)
+
+	sum, err = hashFile("sha256", filePath)
+	assert.Nil(err)
+	assert.Equal("15721d5068de16cf4eba8d0fe6a563bb177333405323b479dcf5986da440c081", sum)
 }

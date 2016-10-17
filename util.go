@@ -1,6 +1,15 @@
 package main
 
-import "strings"
+import (
+	"crypto/md5"
+	"crypto/sha1"
+	"crypto/sha256"
+	"fmt"
+	"hash"
+	"io"
+	"os"
+	"strings"
+)
 
 type NameVer struct {
 	Name    string
@@ -35,4 +44,27 @@ func mergeMaps(m1, m2 map[interface{}]interface{}) map[interface{}]interface{} {
 	}
 
 	return m1
+}
+
+func hashFile(algo, filePath string) (string, error) {
+	f, err := os.Open(filePath)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+
+	var hash hash.Hash
+	switch algo {
+	case "md5":
+		hash = md5.New()
+	case "sha1":
+		hash = sha1.New()
+	case "sha256":
+		hash = sha256.New()
+	}
+
+	if _, err := io.Copy(hash, f); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%x", hash.Sum([]byte(""))), nil
 }
