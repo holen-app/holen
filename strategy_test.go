@@ -140,7 +140,8 @@ func TestBinarySimple(t *testing.T) {
 
 	// check download
 	assert.Contains(tu.MemDownloader.Files, remoteUrl)
-	assert.Equal(tu.MemDownloader.Files[remoteUrl], binPath)
+	assert.Contains(tu.MemDownloader.Files[remoteUrl], path.Join(os.Getenv("HOME"), ".local/share/holen/tmp"))
+	assert.Contains(tu.MemDownloader.Files[remoteUrl], "testbinary--2.1")
 
 	assert.Contains(tu.MemSystem.UserMessages[0], "Downloading")
 	assert.Contains(tu.MemSystem.UserMessages[0], remoteUrl)

@@ -45,7 +45,8 @@ func TestRun(t *testing.T) {
 
 	// check download
 	assert.Contains(downloader.Files, remoteUrl)
-	assert.Equal(downloader.Files[remoteUrl], localPath)
+	assert.Contains(downloader.Files[remoteUrl], path.Join(os.Getenv("HOME"), ".local/share/holen/tmp"))
+	assert.Contains(downloader.Files[remoteUrl], "jq--1.5")
 
 	// check run
 	assert.Equal(runner.History[0], fmt.Sprintf("%s .", localPath))

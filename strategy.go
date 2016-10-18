@@ -192,17 +192,19 @@ func (bs BinaryStrategy) Run(args []string) error {
 	if err != nil {
 		return errors.Wrap(err, "unable to find download path")
 	}
-	localPath := filepath.Join(downloadPath, fmt.Sprintf("%s--%s", bs.Data.Name, bs.Data.Version))
+	binName := fmt.Sprintf("%s--%s", bs.Data.Name, bs.Data.Version)
+	localPath := filepath.Join(downloadPath, binName)
 
 	if !bs.FileExists(localPath) {
-		if len(bs.Data.UnpackPath) > 0 {
-			tempPath, err := bs.TempPath()
-			tempdir, err := ioutil.TempDir(tempPath, "holen")
-			if err != nil {
-				return errors.Wrap(err, "unable to make temporary directory")
-			}
-			defer os.RemoveAll(tempdir)
+		var binPath, sumPath string
 
+		tempPath, err := bs.TempPath()
+		tempdir, err := ioutil.TempDir(tempPath, "holen")
+		if err != nil {
+			return errors.Wrap(err, "unable to make temporary directory")
+		}
+		defer os.RemoveAll(tempdir)
+		if len(bs.Data.UnpackPath) > 0 {
 			u, err := url.Parse(dlURL)
 			if err != nil {
 				return errors.Wrap(err, "unable to parse url")
@@ -227,29 +229,35 @@ func (bs BinaryStrategy) Run(args []string) error {
 			if err != nil {
 				return errors.Wrap(err, "unable to template unpack_path")
 			}
-			binPath := filepath.Join(unpackedPath, unpackPath)
 
-			err = os.Rename(binPath, localPath)
-			if err != nil {
-				return errors.Wrap(err, "unable to move binary into position")
-			}
-
-			os.RemoveAll(tempdir)
+			binPath = filepath.Join(unpackedPath, unpackPath)
+			sumPath = archPath
 		} else {
+			binPath = filepath.Join(tempdir, binName)
+			sumPath = binPath
+
 			bs.UserMessage("Downloading %s...\n", dlURL)
-			err = bs.DownloadFile(dlURL, localPath)
+			err = bs.DownloadFile(dlURL, binPath)
 			if err != nil {
 				return errors.Wrap(err, "can't download binary")
 			}
+		}
+
+		// TODO: checksum the binary
+		_ = sumPath
+
+		err = os.Rename(binPath, localPath)
+		if err != nil {
+			return errors.Wrap(err, "unable to move binary into position")
 		}
 
 		err = bs.MakeExecutable(localPath)
 		if err != nil {
 			return errors.Wrap(err, "unable to make binary executable")
 		}
-	}
 
-	// TODO: checksum the binary
+		os.RemoveAll(tempdir)
+	}
 
 	err = bs.RunCommand(localPath, args)
 	if err != nil {
