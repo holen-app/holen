@@ -185,23 +185,25 @@ func TestHashFile(t *testing.T) {
 
 	tempdir, _ := ioutil.TempDir("", "hash")
 	defer os.RemoveAll(tempdir)
-
 	filePath := path.Join(tempdir, "testfile")
-
 	assert.Nil(ioutil.WriteFile(filePath, []byte("test contents\n"), 0755))
 
 	var err error
 	var sum string
 
-	sum, err = hashFile("md5", filePath)
-	assert.Nil(err)
-	assert.Equal("1b3c032e3e4eaad23401e1568879f150", sum)
+	var hashTests = []struct {
+		algo string
+		hash string
+	}{
+		{"md5", "1b3c032e3e4eaad23401e1568879f150"},
+		{"sha1", "40b44f15b4b6690a90792137a03d57c4d2918271"},
+		{"sha256", "15721d5068de16cf4eba8d0fe6a563bb177333405323b479dcf5986da440c081"},
+	}
 
-	sum, err = hashFile("sha1", filePath)
-	assert.Nil(err)
-	assert.Equal("40b44f15b4b6690a90792137a03d57c4d2918271", sum)
+	for _, test := range hashTests {
+		sum, err = hashFile(test.algo, filePath)
+		assert.Equal(test.hash, sum)
+		assert.Nil(err)
+	}
 
-	sum, err = hashFile("sha256", filePath)
-	assert.Nil(err)
-	assert.Equal("15721d5068de16cf4eba8d0fe6a563bb177333405323b479dcf5986da440c081", sum)
 }
