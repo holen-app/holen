@@ -12,6 +12,18 @@ import (
 	"github.com/pkg/errors"
 )
 
+var NoCheckSums error = fmt.Errorf("No Checksums")
+
+type HashMismatch struct {
+	algo     string
+	checksum string
+	hash     string
+}
+
+func (hm HashMismatch) Error() string {
+	return fmt.Sprintf("using %s, expected %s and got %s", hm.algo, hm.checksum, hm.hash)
+}
+
 type StrategyCommon struct {
 	System
 	Logger
@@ -243,8 +255,14 @@ func (bs BinaryStrategy) Run(args []string) error {
 			}
 		}
 
-		// TODO: checksum the binary
-		_ = sumPath
+		err = bs.ChecksumBinary(sumPath)
+		if err != nil {
+			if err == NoCheckSums {
+				bs.Debugf("skipping checksum, no checksums provided")
+			} else {
+				return errors.Wrap(err, "binary checksum failed")
+			}
+		}
 
 		err = os.Rename(binPath, localPath)
 		if err != nil {
@@ -259,9 +277,36 @@ func (bs BinaryStrategy) Run(args []string) error {
 		os.RemoveAll(tempdir)
 	}
 
+	// TODO: add option to re-checksum the binary
+
 	err = bs.RunCommand(localPath, args)
 	if err != nil {
 		return errors.Wrap(err, "can't run binary")
+	}
+
+	return nil
+}
+
+func (bs BinaryStrategy) ChecksumBinary(binaryPath string) error {
+	data := bs.Data.OSArchData[fmt.Sprintf("%s_%s", bs.OS(), bs.Arch())]
+
+	var algo, checksum string
+	var ok bool
+	if checksum, ok = data["sha256sum"]; ok {
+		algo = "sha256"
+	} else if checksum, ok = data["sha1sum"]; ok {
+		algo = "sha1"
+	} else if checksum, ok = data["md5sum"]; ok {
+		algo = "md5"
+	} else {
+		return NoCheckSums
+	}
+
+	hash, err := hashFile(algo, binaryPath)
+	if err != nil {
+		return err
+	} else if hash != checksum {
+		return HashMismatch{algo, checksum, hash}
 	}
 
 	return nil
