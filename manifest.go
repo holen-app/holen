@@ -22,13 +22,7 @@ type DefaultManifestFinder struct {
 	SelfPath string
 }
 
-func NewManifestFinder(selfPath string) (*DefaultManifestFinder, error) {
-	conf, err := NewDefaultConfigClient()
-	if err != nil {
-		return nil, err
-	}
-
-	logger := &LogrusLogger{}
+func NewManifestFinder(selfPath string, conf ConfigGetter, logger Logger) (*DefaultManifestFinder, error) {
 	return &DefaultManifestFinder{
 		Logger:       logger,
 		ConfigGetter: conf,
@@ -37,8 +31,6 @@ func NewManifestFinder(selfPath string) (*DefaultManifestFinder, error) {
 }
 
 func (dmf DefaultManifestFinder) Find(utility NameVer) (*Manifest, error) {
-	md := ManifestData{}
-
 	var paths []string
 
 	holenPath := os.Getenv("HLN_PATH")
@@ -80,7 +72,13 @@ func (dmf DefaultManifestFinder) Find(utility NameVer) (*Manifest, error) {
 		return nil, fmt.Errorf("unable to find manifest for %s", utility.Name)
 	}
 
-	dmf.Infof("attemting to load: %s", manifestPath)
+	return LoadManifest(utility, manifestPath, dmf.ConfigGetter, dmf.Logger)
+}
+
+func LoadManifest(utility NameVer, manifestPath string, conf ConfigGetter, logger Logger) (*Manifest, error) {
+	md := ManifestData{}
+
+	logger.Infof("attemting to load: %s", manifestPath)
 	data, err := ioutil.ReadFile(manifestPath)
 	if err != nil {
 		return nil, errors.Wrap(err, "problems with reading file")
@@ -93,16 +91,16 @@ func (dmf DefaultManifestFinder) Find(utility NameVer) (*Manifest, error) {
 
 	md.Name = utility.Name
 
-	runner := &DefaultRunner{dmf.Logger}
+	runner := &DefaultRunner{logger}
 	manifest := &Manifest{
-		Logger:       dmf.Logger,
-		ConfigGetter: dmf.ConfigGetter,
+		Logger:       logger,
+		ConfigGetter: conf,
 		Data:         md,
 		Runner:       runner,
 		System:       &DefaultSystem{},
-		Downloader:   &DefaultDownloader{dmf.Logger, runner},
+		Downloader:   &DefaultDownloader{logger, runner},
 	}
-	dmf.Debugf("manifest found: %# v", pretty.Formatter(manifest))
+	logger.Debugf("manifest found: %# v", pretty.Formatter(manifest))
 
 	return manifest, nil
 }

@@ -98,7 +98,13 @@ func main() {
 
 // RunUtility will run the specified utility with arguments.
 func RunUtility(selfPath, utility string, args []string) error {
-	manifestFinder, err := NewManifestFinder(selfPath)
+	conf, err := NewDefaultConfigClient()
+	if err != nil {
+		return err
+	}
+
+	logger := &LogrusLogger{}
+	manifestFinder, err := NewManifestFinder(selfPath, conf, logger)
 	if err != nil {
 		return err
 	}

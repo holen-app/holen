@@ -17,15 +17,12 @@ func TestRun(t *testing.T) {
 	nameVer := ParseName("jq")
 
 	wd, _ := os.Getwd()
-	manifestFinder, err := NewManifestFinder(path.Join(wd, "testdata", "manifests"))
-	assert.Nil(err)
-	assert.NotNil(manifestFinder)
-
 	logger := &MemLogger{}
 	config := &MemConfig{}
 	config.Set("strategy.priority", "binary,docker")
-	manifestFinder.Logger = logger
-	manifestFinder.ConfigGetter = config
+	manifestFinder, err := NewManifestFinder(path.Join(wd, "testdata", "manifests"), config, logger)
+	assert.Nil(err)
+	assert.NotNil(manifestFinder)
 
 	manifest, err := manifestFinder.Find(nameVer)
 	assert.Nil(err)
