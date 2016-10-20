@@ -101,6 +101,7 @@ func (md *MemDownloader) DownloadFile(url, path string) error {
 	}
 
 	md.Files[url] = path
+	os.Create(path)
 
 	return nil
 }

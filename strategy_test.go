@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path"
 	"runtime"
@@ -140,7 +141,8 @@ func TestBinarySimple(t *testing.T) {
 
 	// check download
 	assert.Contains(tu.MemDownloader.Files, remoteUrl)
-	assert.Equal(tu.MemDownloader.Files[remoteUrl], binPath)
+	assert.Contains(tu.MemDownloader.Files[remoteUrl], path.Join(os.Getenv("HOME"), ".local/share/holen/tmp"))
+	assert.Contains(tu.MemDownloader.Files[remoteUrl], "testbinary--2.1")
 
 	assert.Contains(tu.MemSystem.UserMessages[0], "Downloading")
 	assert.Contains(tu.MemSystem.UserMessages[0], remoteUrl)
@@ -238,5 +240,53 @@ func TestBinaryDownloadPath(t *testing.T) {
 			test.cleanup(tu)
 		}
 	}
+}
 
+func TestBinaryChecksumBinary(t *testing.T) {
+	assert := assert.New(t)
+
+	tempdir, _ := ioutil.TempDir("", "hash")
+	defer os.RemoveAll(tempdir)
+	filePath := path.Join(tempdir, "testfile")
+	assert.Nil(ioutil.WriteFile(filePath, []byte("test contents\n"), 0755))
+
+	var checksumTests = []struct {
+		hashdata map[string]string
+		result   error
+	}{
+		{
+			map[string]string{"md5sum": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"},
+			HashMismatch{algo: "md5", checksum: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", hash: "1b3c032e3e4eaad23401e1568879f150"},
+		},
+		{
+			map[string]string{"md5sum": "1b3c032e3e4eaad23401e1568879f150"},
+			nil,
+		},
+		{
+			map[string]string{"sha1sum": "40b44f15b4b6690a90792137a03d57c4d2918271"},
+			nil,
+		},
+		{
+			map[string]string{"sha256sum": "15721d5068de16cf4eba8d0fe6a563bb177333405323b479dcf5986da440c081"},
+			nil,
+		},
+		{
+			map[string]string{
+				"md5sum":    "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+				"sha1sum":   "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+				"sha256sum": "15721d5068de16cf4eba8d0fe6a563bb177333405323b479dcf5986da440c081",
+			},
+			nil,
+		},
+	}
+
+	for _, test := range checksumTests {
+
+		_, tb := newBinaryStrategy()
+
+		tb.Data.OSArchData[fmt.Sprintf("%s_%s", tb.OS(), tb.Arch())] = test.hashdata
+		result := tb.ChecksumBinary(filePath)
+
+		assert.Equal(result, test.result)
+	}
 }

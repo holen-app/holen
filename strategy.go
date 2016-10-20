@@ -12,6 +12,18 @@ import (
 	"github.com/pkg/errors"
 )
 
+var NoCheckSums error = fmt.Errorf("No Checksums")
+
+type HashMismatch struct {
+	algo     string
+	checksum string
+	hash     string
+}
+
+func (hm HashMismatch) Error() string {
+	return fmt.Sprintf("using %s, expected %s and got %s", hm.algo, hm.checksum, hm.hash)
+}
+
 type StrategyCommon struct {
 	System
 	Logger
@@ -192,17 +204,19 @@ func (bs BinaryStrategy) Run(args []string) error {
 	if err != nil {
 		return errors.Wrap(err, "unable to find download path")
 	}
-	localPath := filepath.Join(downloadPath, fmt.Sprintf("%s--%s", bs.Data.Name, bs.Data.Version))
+	binName := fmt.Sprintf("%s--%s", bs.Data.Name, bs.Data.Version)
+	localPath := filepath.Join(downloadPath, binName)
 
 	if !bs.FileExists(localPath) {
-		if len(bs.Data.UnpackPath) > 0 {
-			tempPath, err := bs.TempPath()
-			tempdir, err := ioutil.TempDir(tempPath, "holen")
-			if err != nil {
-				return errors.Wrap(err, "unable to make temporary directory")
-			}
-			defer os.RemoveAll(tempdir)
+		var binPath, sumPath string
 
+		tempPath, err := bs.TempPath()
+		tempdir, err := ioutil.TempDir(tempPath, "holen")
+		if err != nil {
+			return errors.Wrap(err, "unable to make temporary directory")
+		}
+		defer os.RemoveAll(tempdir)
+		if len(bs.Data.UnpackPath) > 0 {
 			u, err := url.Parse(dlURL)
 			if err != nil {
 				return errors.Wrap(err, "unable to parse url")
@@ -227,33 +241,72 @@ func (bs BinaryStrategy) Run(args []string) error {
 			if err != nil {
 				return errors.Wrap(err, "unable to template unpack_path")
 			}
-			binPath := filepath.Join(unpackedPath, unpackPath)
 
-			err = os.Rename(binPath, localPath)
-			if err != nil {
-				return errors.Wrap(err, "unable to move binary into position")
-			}
-
-			os.RemoveAll(tempdir)
+			binPath = filepath.Join(unpackedPath, unpackPath)
+			sumPath = archPath
 		} else {
+			binPath = filepath.Join(tempdir, binName)
+			sumPath = binPath
+
 			bs.UserMessage("Downloading %s...\n", dlURL)
-			err = bs.DownloadFile(dlURL, localPath)
+			err = bs.DownloadFile(dlURL, binPath)
 			if err != nil {
 				return errors.Wrap(err, "can't download binary")
 			}
+		}
+
+		err = bs.ChecksumBinary(sumPath)
+		if err != nil {
+			if err == NoCheckSums {
+				bs.Debugf("skipping checksum, no checksums provided")
+			} else {
+				return errors.Wrap(err, "binary checksum failed")
+			}
+		}
+
+		err = os.Rename(binPath, localPath)
+		if err != nil {
+			return errors.Wrap(err, "unable to move binary into position")
 		}
 
 		err = bs.MakeExecutable(localPath)
 		if err != nil {
 			return errors.Wrap(err, "unable to make binary executable")
 		}
+
+		os.RemoveAll(tempdir)
 	}
 
-	// TODO: checksum the binary
+	// TODO: add option to re-checksum the binary
 
 	err = bs.RunCommand(localPath, args)
 	if err != nil {
 		return errors.Wrap(err, "can't run binary")
+	}
+
+	return nil
+}
+
+func (bs BinaryStrategy) ChecksumBinary(binaryPath string) error {
+	data := bs.Data.OSArchData[fmt.Sprintf("%s_%s", bs.OS(), bs.Arch())]
+
+	var algo, checksum string
+	var ok bool
+	if checksum, ok = data["sha256sum"]; ok {
+		algo = "sha256"
+	} else if checksum, ok = data["sha1sum"]; ok {
+		algo = "sha1"
+	} else if checksum, ok = data["md5sum"]; ok {
+		algo = "md5"
+	} else {
+		return NoCheckSums
+	}
+
+	hash, err := hashFile(algo, binaryPath)
+	if err != nil {
+		return err
+	} else if hash != checksum {
+		return HashMismatch{algo, checksum, hash}
 	}
 
 	return nil
