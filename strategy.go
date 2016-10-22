@@ -47,6 +47,7 @@ func (sc *StrategyCommon) Templater(version string, osArchData map[string]map[st
 
 type Strategy interface {
 	Run([]string) error
+	Inspect() error
 }
 
 type DockerData struct {
@@ -139,6 +140,13 @@ func (ds DockerStrategy) Run(extraArgs []string) error {
 	if err != nil {
 		return errors.Wrap(err, "can't run image")
 	}
+
+	return nil
+}
+
+func (ds DockerStrategy) Inspect() error {
+	// TODO: Implement
+	ds.UserMessage("Docker Strategy\n")
 
 	return nil
 }
@@ -283,6 +291,13 @@ func (bs BinaryStrategy) Run(args []string) error {
 	if err != nil {
 		return errors.Wrap(err, "can't run binary")
 	}
+
+	return nil
+}
+
+func (bs BinaryStrategy) Inspect() error {
+	// TODO: Implement
+	bs.UserMessage("Binary Strategy\n")
 
 	return nil
 }
