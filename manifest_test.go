@@ -48,3 +48,23 @@ func TestRun(t *testing.T) {
 	// check run
 	assert.Equal(runner.History[0], fmt.Sprintf("%s .", localPath))
 }
+
+func TestLoadAllStrategies(t *testing.T) {
+
+	assert := assert.New(t)
+
+	logger := &MemLogger{}
+	config := &MemConfig{}
+
+	manifest, err := LoadManifest(ParseName("jq"), "testdata/manifests/jq.yaml", config, logger)
+	assert.Nil(err)
+
+	allStrategies, err := manifest.LoadAllStrategies()
+	assert.Nil(err)
+
+	assert.Contains(allStrategies, "docker")
+	assert.Contains(allStrategies, "binary")
+	assert.Len(allStrategies["docker"], 1)
+	assert.Len(allStrategies["binary"], 2)
+	assert.NotEqual(allStrategies["binary"][0].(BinaryStrategy).Data.OSArchData, allStrategies["binary"][1].(BinaryStrategy).Data.OSArchData)
+}
