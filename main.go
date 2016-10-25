@@ -43,10 +43,11 @@ func main() {
 	}
 
 	logrus.SetFormatter(&logrus.TextFormatter{FullTimestamp: true})
-	if basename == "holen" || basename == "hln" || strings.HasPrefix(basename, "holen") {
 
-		// configure logging
-		logrus.SetLevel(logrus.InfoLevel)
+	// configure logging
+	logrus.SetLevel(logrus.InfoLevel)
+
+	if basename == "holen" || basename == "hln" || strings.HasPrefix(basename, "holen") {
 
 		// options to change log level
 		globalOptions.Quiet = func(v string) {
@@ -63,9 +64,6 @@ func main() {
 			os.Exit(1)
 		}
 	} else {
-
-		// configure logging
-		logrus.SetLevel(logrus.WarnLevel)
 
 		// options to change log level
 		inlineOptions.Verbose = func(v string) {

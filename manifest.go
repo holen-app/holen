@@ -78,7 +78,7 @@ func (dmf DefaultManifestFinder) Find(utility NameVer) (*Manifest, error) {
 func LoadManifest(utility NameVer, manifestPath string, conf ConfigGetter, logger Logger) (*Manifest, error) {
 	md := ManifestData{}
 
-	logger.Infof("attemting to load: %s", manifestPath)
+	logger.Debugf("attemting to load: %s", manifestPath)
 	data, err := ioutil.ReadFile(manifestPath)
 	if err != nil {
 		return nil, errors.Wrap(err, "problems with reading file")

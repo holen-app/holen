@@ -110,7 +110,7 @@ type DefaultDownloader struct {
 }
 
 func (dd DefaultDownloader) DownloadFile(url, path string) error {
-	dd.Infof("Downloading file from %s to %s", url, path)
+	dd.Debugf("Downloading file from %s to %s", url, path)
 
 	res, err := http.Get(url)
 	if err != nil {
@@ -146,13 +146,13 @@ type DefaultRunner struct {
 }
 
 func (dr DefaultRunner) CheckCommand(command string, args []string) bool {
-	dr.Infof("Checking command %s with args %v", command, args)
+	dr.Debugf("Checking command %s with args %v", command, args)
 
 	return exec.Command(command, args...).Run() == nil
 }
 
 func (dr DefaultRunner) RunCommand(command string, args []string) error {
-	dr.Infof("Running command %s with args %v", command, args)
+	dr.Debugf("Running command %s with args %v", command, args)
 
 	// adapted from https://gobyexample.com/execing-processes
 	fullPath, err := exec.LookPath(command)
