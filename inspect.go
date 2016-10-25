@@ -63,7 +63,7 @@ func runInspect(inspectCommand InspectCommand, conf ConfigGetter, logger Logger)
 		}
 
 		for strategyName, strategies := range allStrategies {
-			manifest.UserMessage("%s\n", strategyName)
+			manifest.Stderrf("%s\n", strategyName)
 			for _, strategy := range strategies {
 				strategy.Inspect()
 			}

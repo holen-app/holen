@@ -146,7 +146,7 @@ func (ds DockerStrategy) Run(extraArgs []string) error {
 
 func (ds DockerStrategy) Inspect() error {
 	// TODO: Implement
-	ds.UserMessage("Docker Strategy\n")
+	ds.Stderrf("Docker Strategy\n")
 
 	return nil
 }
@@ -234,7 +234,7 @@ func (bs BinaryStrategy) Run(args []string) error {
 			archPath := filepath.Join(tempdir, fileName)
 			unpackedPath := filepath.Join(tempdir, "unpacked")
 
-			bs.UserMessage("Downloading %s...\n", dlURL)
+			bs.Stderrf("Downloading %s...\n", dlURL)
 			err = bs.DownloadFile(dlURL, archPath)
 			if err != nil {
 				return errors.Wrap(err, "can't download archive")
@@ -256,7 +256,7 @@ func (bs BinaryStrategy) Run(args []string) error {
 			binPath = filepath.Join(tempdir, binName)
 			sumPath = binPath
 
-			bs.UserMessage("Downloading %s...\n", dlURL)
+			bs.Stderrf("Downloading %s...\n", dlURL)
 			err = bs.DownloadFile(dlURL, binPath)
 			if err != nil {
 				return errors.Wrap(err, "can't download binary")
@@ -297,7 +297,7 @@ func (bs BinaryStrategy) Run(args []string) error {
 
 func (bs BinaryStrategy) Inspect() error {
 	// TODO: Implement
-	bs.UserMessage("Binary Strategy\n")
+	bs.Stderrf("Binary Strategy\n")
 
 	return nil
 }

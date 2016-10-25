@@ -22,7 +22,7 @@ type System interface {
 	GID() int
 	FileExists(string) bool
 	MakeExecutable(string) error
-	UserMessage(string, ...interface{})
+	Stderrf(string, ...interface{})
 	UnpackArchive(string, string) error
 }
 
@@ -55,7 +55,7 @@ func (ds DefaultSystem) MakeExecutable(localPath string) error {
 	return os.Chmod(localPath, 0755)
 }
 
-func (ds DefaultSystem) UserMessage(message string, args ...interface{}) {
+func (ds DefaultSystem) Stderrf(message string, args ...interface{}) {
 	fmt.Fprintf(os.Stderr, message, args...)
 }
 

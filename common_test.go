@@ -147,7 +147,7 @@ func (ms MemSystem) MakeExecutable(localPath string) error {
 	return nil
 }
 
-func (ms *MemSystem) UserMessage(message string, args ...interface{}) {
+func (ms *MemSystem) Stderrf(message string, args ...interface{}) {
 	ms.UserMessages = append(ms.UserMessages, fmt.Sprintf(message, args...))
 }
 
