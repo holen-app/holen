@@ -23,6 +23,7 @@ type System interface {
 	FileExists(string) bool
 	MakeExecutable(string) error
 	Stderrf(string, ...interface{})
+	Stdoutf(string, ...interface{})
 	UnpackArchive(string, string) error
 }
 
@@ -57,6 +58,10 @@ func (ds DefaultSystem) MakeExecutable(localPath string) error {
 
 func (ds DefaultSystem) Stderrf(message string, args ...interface{}) {
 	fmt.Fprintf(os.Stderr, message, args...)
+}
+
+func (ds DefaultSystem) Stdoutf(message string, args ...interface{}) {
+	fmt.Fprintf(os.Stdout, message, args...)
 }
 
 func (ds DefaultSystem) UnpackArchive(archive, destPath string) error {

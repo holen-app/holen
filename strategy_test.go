@@ -21,7 +21,7 @@ type TestUtils struct {
 
 func newDockerStrategy() (*TestUtils, *DockerStrategy) {
 	tu := &TestUtils{
-		MemSystem:     &MemSystem{runtime.GOOS, runtime.GOARCH, 1000, 1000, make(map[string]bool), []string{}, make(map[string][]string)},
+		MemSystem:     &MemSystem{runtime.GOOS, runtime.GOARCH, 1000, 1000, make(map[string]bool), []string{}, []string{}, make(map[string][]string)},
 		MemLogger:     &MemLogger{},
 		MemConfig:     &MemConfig{},
 		MemDownloader: &MemDownloader{},
@@ -105,7 +105,7 @@ func TestDockerCommandFailed(t *testing.T) {
 
 func newBinaryStrategy() (*TestUtils, *BinaryStrategy) {
 	tu := &TestUtils{
-		MemSystem:     &MemSystem{runtime.GOOS, runtime.GOARCH, 1000, 1000, make(map[string]bool), []string{}, make(map[string][]string)},
+		MemSystem:     &MemSystem{runtime.GOOS, runtime.GOARCH, 1000, 1000, make(map[string]bool), []string{}, []string{}, make(map[string][]string)},
 		MemLogger:     &MemLogger{},
 		MemConfig:     &MemConfig{},
 		MemDownloader: &MemDownloader{},
@@ -144,8 +144,8 @@ func TestBinarySimple(t *testing.T) {
 	assert.Contains(tu.MemDownloader.Files[remoteUrl], path.Join(os.Getenv("HOME"), ".local/share/holen/tmp"))
 	assert.Contains(tu.MemDownloader.Files[remoteUrl], "testbinary--2.1")
 
-	assert.Contains(tu.MemSystem.UserMessages[0], "Downloading")
-	assert.Contains(tu.MemSystem.UserMessages[0], remoteUrl)
+	assert.Contains(tu.MemSystem.StderrMessages[0], "Downloading")
+	assert.Contains(tu.MemSystem.StderrMessages[0], remoteUrl)
 
 	assert.Equal(tu.MemRunner.History[0], fmt.Sprintf("%s first second", binPath))
 }
@@ -181,8 +181,8 @@ func TestBinaryArchive(t *testing.T) {
 	assert.Contains(tu.MemDownloader.Files[remoteUrl], path.Join(os.Getenv("HOME"), ".local/share/holen/tmp"))
 	assert.Contains(tu.MemDownloader.Files[remoteUrl], "testbinary-linux_amd64.zip")
 
-	assert.Contains(tu.MemSystem.UserMessages[0], "Downloading")
-	assert.Contains(tu.MemSystem.UserMessages[0], remoteUrl)
+	assert.Contains(tu.MemSystem.StderrMessages[0], "Downloading")
+	assert.Contains(tu.MemSystem.StderrMessages[0], remoteUrl)
 
 	assert.Equal(tu.MemRunner.History[0], fmt.Sprintf("%s first second", binPath))
 }
