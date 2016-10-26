@@ -45,6 +45,24 @@ func (sc *StrategyCommon) Templater(version string, osArchData map[string]map[st
 	}
 }
 
+func (sc *StrategyCommon) CommonTemplateValues(version string, osArchData map[string]map[string]string, system System, values map[string]string) (map[string]string, error) {
+	temp := sc.Templater(version, osArchData, system)
+	sc.Debugf("templater: %# v", pretty.Formatter(temp))
+
+	var err error
+	for key, val := range values {
+		values[key], err = temp.Template(val)
+		if err != nil {
+			return values, errors.Wrap(err, fmt.Sprintf("unable to template %s", key))
+		}
+	}
+	return values, nil
+}
+
+func (bs BinaryStrategy) TemplateValues(values map[string]string) (map[string]string, error) {
+	return bs.CommonTemplateValues(bs.Data.Version, bs.Data.OSArchData, bs.System, values)
+}
+
 type Strategy interface {
 	Run([]string) error
 	Inspect() error
@@ -200,13 +218,15 @@ func (bs BinaryStrategy) TempPath() (string, error) {
 }
 
 func (bs BinaryStrategy) Run(args []string) error {
-	temp := bs.Templater(bs.Data.Version, bs.Data.OSArchData, bs.System)
-	bs.Debugf("templater: %# v", pretty.Formatter(temp))
-
-	dlURL, err := temp.Template(bs.Data.BaseURL)
+	templated, err := bs.TemplateValues(map[string]string{
+		"BaseURL":    bs.Data.BaseURL,
+		"UnpackPath": bs.Data.UnpackPath,
+	})
 	if err != nil {
-		return errors.Wrap(err, "unable to template url")
+		return err
 	}
+
+	dlURL := templated["BaseURL"]
 
 	downloadPath, err := bs.DownloadPath()
 	if err != nil {
@@ -224,7 +244,7 @@ func (bs BinaryStrategy) Run(args []string) error {
 			return errors.Wrap(err, "unable to make temporary directory")
 		}
 		defer os.RemoveAll(tempdir)
-		if len(bs.Data.UnpackPath) > 0 {
+		if len(templated["UnpackPath"]) > 0 {
 			u, err := url.Parse(dlURL)
 			if err != nil {
 				return errors.Wrap(err, "unable to parse url")
@@ -245,11 +265,7 @@ func (bs BinaryStrategy) Run(args []string) error {
 				return errors.Wrap(err, "unable to unpack archive")
 			}
 
-			unpackPath, err := temp.Template(bs.Data.UnpackPath)
-			if err != nil {
-				return errors.Wrap(err, "unable to template unpack_path")
-			}
-
+			unpackPath := templated["UnpackPath"]
 			binPath = filepath.Join(unpackedPath, unpackPath)
 			sumPath = archPath
 		} else {
@@ -296,24 +312,46 @@ func (bs BinaryStrategy) Run(args []string) error {
 }
 
 func (bs BinaryStrategy) Inspect() error {
-	// TODO: Implement
-	bs.Stderrf("Binary Strategy\n")
+	templated, err := bs.TemplateValues(map[string]string{
+		"BaseURL":    bs.Data.BaseURL,
+		"UnpackPath": bs.Data.UnpackPath,
+	})
+	if err != nil {
+		return err
+	}
+
+	bs.Stdoutf("Binary Strategy (version: %s):\n", bs.Data.Version)
+	bs.Stdoutf("  final url: %s\n", templated["BaseURL"])
+	if len(templated["UnpackPath"]) > 0 {
+		bs.Stdoutf("  final unpack path: %s\n", templated["UnpackPath"])
+	}
+	algo, sum := bs.FindChecksumAlgoAndSum()
+	if len(algo) > 0 {
+		bs.Stdoutf("  checksum with %s: %s\n", algo, sum)
+	}
 
 	return nil
 }
 
-func (bs BinaryStrategy) ChecksumBinary(binaryPath string) error {
+func (bs BinaryStrategy) FindChecksumAlgoAndSum() (string, string) {
 	data := bs.Data.OSArchData[fmt.Sprintf("%s_%s", bs.OS(), bs.Arch())]
 
-	var algo, checksum string
+	var checksum string
 	var ok bool
 	if checksum, ok = data["sha256sum"]; ok {
-		algo = "sha256"
+		return "sha256", checksum
 	} else if checksum, ok = data["sha1sum"]; ok {
-		algo = "sha1"
+		return "sha1", checksum
 	} else if checksum, ok = data["md5sum"]; ok {
-		algo = "md5"
-	} else {
+		return "md5", checksum
+	}
+
+	return "", ""
+}
+
+func (bs BinaryStrategy) ChecksumBinary(binaryPath string) error {
+	algo, checksum := bs.FindChecksumAlgoAndSum()
+	if len(algo) == 0 {
 		return NoCheckSums
 	}
 
