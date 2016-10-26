@@ -59,10 +59,6 @@ func (sc *StrategyCommon) CommonTemplateValues(version string, osArchData map[st
 	return values, nil
 }
 
-func (bs BinaryStrategy) TemplateValues(values map[string]string) (map[string]string, error) {
-	return bs.CommonTemplateValues(bs.Data.Version, bs.Data.OSArchData, bs.System, values)
-}
-
 type Strategy interface {
 	Run([]string) error
 	Inspect() error
@@ -102,6 +98,10 @@ type BinaryStrategy struct {
 	Data BinaryData
 }
 
+func (ds DockerStrategy) TemplateValues(values map[string]string) (map[string]string, error) {
+	return ds.CommonTemplateValues(ds.Data.Version, ds.Data.OSArchData, ds.System, values)
+}
+
 func (ds DockerStrategy) Run(extraArgs []string) error {
 	// skip if docker not found
 	if !ds.CheckCommand("docker", []string{"version"}) {
@@ -109,10 +109,14 @@ func (ds DockerStrategy) Run(extraArgs []string) error {
 		return &SkipError{"docker not available"}
 	}
 
-	temp := ds.Templater(ds.Data.Version, ds.Data.OSArchData, ds.System)
-	ds.Debugf("templater: %# v", pretty.Formatter(temp))
+	templated, err := ds.TemplateValues(map[string]string{
+		"Image": ds.Data.Image,
+	})
+	if err != nil {
+		return err
+	}
 
-	image, err := temp.Template(ds.Data.Image)
+	image := templated["Image"]
 	if err != nil {
 		return errors.Wrap(err, "unable to template image name")
 	}
@@ -163,8 +167,15 @@ func (ds DockerStrategy) Run(extraArgs []string) error {
 }
 
 func (ds DockerStrategy) Inspect() error {
-	// TODO: Implement
-	ds.Stderrf("Docker Strategy\n")
+	templated, err := ds.TemplateValues(map[string]string{
+		"Image": ds.Data.Image,
+	})
+	if err != nil {
+		return errors.Wrap(err, fmt.Sprintf("error in templating docker version %s", ds.Data.Version))
+	}
+
+	ds.Stdoutf("Docker Strategy (version: %s):\n", ds.Data.Version)
+	ds.Stdoutf("  final image: %s\n", templated["Image"])
 
 	return nil
 }
@@ -215,6 +226,10 @@ func (bs BinaryStrategy) TempPath() (string, error) {
 	os.MkdirAll(tempPath, 0755)
 
 	return tempPath, nil
+}
+
+func (bs BinaryStrategy) TemplateValues(values map[string]string) (map[string]string, error) {
+	return bs.CommonTemplateValues(bs.Data.Version, bs.Data.OSArchData, bs.System, values)
 }
 
 func (bs BinaryStrategy) Run(args []string) error {
@@ -317,7 +332,7 @@ func (bs BinaryStrategy) Inspect() error {
 		"UnpackPath": bs.Data.UnpackPath,
 	})
 	if err != nil {
-		return err
+		return errors.Wrap(err, fmt.Sprintf("error in templating binary version %s", bs.Data.Version))
 	}
 
 	bs.Stdoutf("Binary Strategy (version: %s):\n", bs.Data.Version)
