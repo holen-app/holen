@@ -62,13 +62,14 @@ func runInspect(inspectCommand InspectCommand, conf ConfigGetter, logger Logger)
 			return err
 		}
 
-		for strategyName, strategies := range allStrategies {
-			manifest.Stderrf("%s\n", strategyName)
+		for _, strategies := range allStrategies {
 			for _, strategy := range strategies {
-				strategy.Inspect()
+				err = strategy.Inspect()
+				if err != nil {
+					return err
+				}
 			}
 		}
-		// fmt.Printf("strategies: %# v\n", pretty.Formatter(allStrategies))
 	} else {
 		strategies, err := manifest.LoadStrategies(utility)
 		if err != nil {
@@ -76,7 +77,10 @@ func runInspect(inspectCommand InspectCommand, conf ConfigGetter, logger Logger)
 		}
 
 		for _, strategy := range strategies {
-			strategy.Inspect()
+			err = strategy.Inspect()
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
