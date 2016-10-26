@@ -16,12 +16,16 @@ strategies:
                 ext: osx-amd64
         versions:
           - version: '1.5'
+            os_arch:
+                windows_amd64:
+                    md5sum: abababab
           - version: '1.4'
             os_arch:
                 windows_amd64:
                     ext: win64.exe
                 linux_amd64:
                     ext: linux-x86_64
+                    md5sum: cdcdcdcd
                 darwin_amd64:
                     ext: osx-x86_64
 ...

@@ -294,7 +294,7 @@ func (m *Manifest) LoadAllStrategies() (map[string][]Strategy, error) {
 		delete(strategy, "versions")
 
 		for _, version := range versions {
-			final := mergeMaps(strategy, version.(map[interface{}]interface{}))
+			final := mergeMaps(copyMap(strategy), version.(map[interface{}]interface{}))
 			var osArchData map[string]map[string]string
 			if origOsArch, osArchMapOk := final["os_arch"]; osArchMapOk {
 				osArchData = m.processOSArchMap(origOsArch)

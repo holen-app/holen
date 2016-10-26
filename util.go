@@ -41,6 +41,20 @@ func findSelfPath() (string, error) {
 	}
 	return selfPath, nil
 }
+
+func copyMap(m1 map[interface{}]interface{}) map[interface{}]interface{} {
+	newMap := make(map[interface{}]interface{})
+	for k, v := range m1 {
+		if _, typeOk := v.(map[interface{}]interface{}); typeOk {
+			newMap[k] = copyMap(v.(map[interface{}]interface{}))
+		} else {
+			newMap[k] = v
+		}
+	}
+
+	return newMap
+}
+
 func mergeMaps(m1, m2 map[interface{}]interface{}) map[interface{}]interface{} {
 	for k := range m1 {
 		if vv, ok := m2[k]; ok {
