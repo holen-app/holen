@@ -82,3 +82,41 @@ func TestLoadAllStrategies(t *testing.T) {
 			"darwin_amd64":  map[string]string{"ext": "osx-x86_64"},
 		})
 }
+
+func TestStrategyOrder(t *testing.T) {
+	assert := assert.New(t)
+
+	var strategyOrderTests = []struct {
+		adjustment func(*MemConfig)
+		result     []string
+	}{
+		{
+			func(config *MemConfig) {},
+			[]string{"docker", "binary"},
+		},
+		{
+			func(config *MemConfig) {
+				config.Set("strategy.priority", "binary,docker")
+				config.Unset("strategy.priority")
+			},
+			[]string{"docker", "binary"},
+		},
+		{
+			func(config *MemConfig) {
+				config.Set("strategy.priority", "binary,docker")
+			},
+			[]string{"binary", "docker"},
+		},
+	}
+
+	for _, test := range strategyOrderTests {
+		logger := &MemLogger{}
+		config := &MemConfig{}
+
+		manifest, err := LoadManifest(ParseName("jq"), "testdata/manifests/jq.yaml", config, logger)
+		assert.Nil(err)
+
+		test.adjustment(config)
+		assert.Equal(manifest.StrategyOrder(ParseName("jq")), test.result)
+	}
+}

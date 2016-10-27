@@ -19,6 +19,15 @@ func (mc *MemConfig) Get(key string) (string, error) {
 	return "", nil
 }
 
+func (mc *MemConfig) Unset(key string) error {
+	if mc.Config == nil {
+		mc.Config = make(map[string]string)
+	}
+	delete(mc.Config, key)
+
+	return nil
+}
+
 func (mc *MemConfig) Set(key, value string) {
 	if mc.Config == nil {
 		mc.Config = make(map[string]string)

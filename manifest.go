@@ -120,8 +120,7 @@ type Manifest struct {
 	Data ManifestData
 }
 
-func (m *Manifest) LoadStrategies(utility NameVer) ([]Strategy, error) {
-
+func (m *Manifest) StrategyOrder(utility NameVer) []string {
 	// default
 	priority := "docker,binary"
 
@@ -131,11 +130,17 @@ func (m *Manifest) LoadStrategies(utility NameVer) ([]Strategy, error) {
 
 	m.Debugf("Priority order: %s", priority)
 
+	return strings.Split(priority, ",")
+}
+
+func (m *Manifest) LoadStrategies(utility NameVer) ([]Strategy, error) {
+
+	strategyOrder := m.StrategyOrder(utility)
 	var strategies []Strategy
 
 	var selectedStrategy string
 	var foundStrategy map[interface{}]interface{}
-	for _, try := range strings.Split(priority, ",") {
+	for _, try := range strategyOrder {
 		try = strings.TrimSpace(try)
 		if strategy, strategyOk := m.Data.Strategies[try]; strategyOk {
 			selectedStrategy = try
