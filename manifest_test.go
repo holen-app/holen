@@ -87,25 +87,101 @@ func TestStrategyOrder(t *testing.T) {
 	assert := assert.New(t)
 
 	var strategyOrderTests = []struct {
+		utility    string
 		adjustment func(*MemConfig)
 		result     []string
 	}{
 		{
+			"jq",
 			func(config *MemConfig) {},
-			[]string{"docker", "binary"},
+			[]string{"docker", "binary", "cmdio"},
 		},
 		{
+			"jq",
 			func(config *MemConfig) {
 				config.Set("strategy.priority", "binary,docker")
 				config.Unset("strategy.priority")
 			},
-			[]string{"docker", "binary"},
+			[]string{"docker", "binary", "cmdio"},
 		},
 		{
+			"jq",
 			func(config *MemConfig) {
 				config.Set("strategy.priority", "binary,docker")
 			},
-			[]string{"binary", "docker"},
+			[]string{"binary", "docker", "cmdio"},
+		},
+		{
+			"jq",
+			func(config *MemConfig) {
+				config.Set("strategy.priority", "cmdio")
+			},
+			[]string{"cmdio", "docker", "binary"},
+		},
+		{
+			"jq",
+			func(config *MemConfig) {
+				config.Set("strategy.xpriority", "binary")
+			},
+			[]string{"binary"},
+		},
+		// test utility level override and priority bump
+		{
+			"jq",
+			func(config *MemConfig) {
+				config.Set("strategy.jq.xpriority", "binary")
+			},
+			[]string{"binary"},
+		},
+		{
+			"hugo",
+			func(config *MemConfig) {
+				config.Set("strategy.jq.xpriority", "binary")
+			},
+			[]string{"docker", "binary", "cmdio"},
+		},
+		{
+			"jq",
+			func(config *MemConfig) {
+				config.Set("strategy.jq.priority", "binary")
+			},
+			[]string{"binary", "docker", "cmdio"},
+		},
+		{
+			"hugo",
+			func(config *MemConfig) {
+				config.Set("strategy.jq.priority", "binary")
+			},
+			[]string{"docker", "binary", "cmdio"},
+		},
+		// test version level override and priority bump
+		{
+			"jq--1.6",
+			func(config *MemConfig) {
+				config.Set("strategy.jq.1.6.xpriority", "binary")
+			},
+			[]string{"binary"},
+		},
+		{
+			"jq",
+			func(config *MemConfig) {
+				config.Set("strategy.jq.1.6.xpriority", "binary")
+			},
+			[]string{"docker", "binary", "cmdio"},
+		},
+		{
+			"jq--1.6",
+			func(config *MemConfig) {
+				config.Set("strategy.jq.1.6.priority", "binary")
+			},
+			[]string{"binary", "docker", "cmdio"},
+		},
+		{
+			"jq",
+			func(config *MemConfig) {
+				config.Set("strategy.jq.1.6.priority", "binary")
+			},
+			[]string{"docker", "binary", "cmdio"},
 		},
 	}
 
@@ -113,10 +189,10 @@ func TestStrategyOrder(t *testing.T) {
 		logger := &MemLogger{}
 		config := &MemConfig{}
 
-		manifest, err := LoadManifest(ParseName("jq"), "testdata/manifests/jq.yaml", config, logger)
+		manifest, err := LoadManifest(ParseName(test.utility), "testdata/manifests/jq.yaml", config, logger)
 		assert.Nil(err)
 
 		test.adjustment(config)
-		assert.Equal(manifest.StrategyOrder(ParseName("jq")), test.result)
+		assert.Equal(manifest.StrategyOrder(ParseName(test.utility)), test.result)
 	}
 }

@@ -122,15 +122,54 @@ type Manifest struct {
 
 func (m *Manifest) StrategyOrder(utility NameVer) []string {
 	// default
-	priority := "docker,binary"
+	allPriorities := []string{"docker", "binary", "cmdio"}
 
-	if configPriority, err := m.Get("strategy.priority"); err == nil && len(configPriority) > 0 {
-		priority = configPriority
+	priorities := []string{}
+
+	xPriorityKeys := []string{
+		fmt.Sprintf("strategy.%s.%s.xpriority", utility.Name, utility.Version),
+		fmt.Sprintf("strategy.%s.xpriority", utility.Name),
+		"strategy.xpriority",
 	}
 
-	m.Debugf("Priority order: %s", priority)
+	for _, key := range xPriorityKeys {
+		if value, err := m.Get(key); err == nil && len(value) > 0 {
+			priorities = strings.Split(value, ",")
+		}
+	}
 
-	return strings.Split(priority, ",")
+	if len(priorities) == 0 {
+
+		priorityKeys := []string{
+			fmt.Sprintf("strategy.%s.%s.priority", utility.Name, utility.Version),
+			fmt.Sprintf("strategy.%s.priority", utility.Name),
+			"strategy.priority",
+		}
+
+		for _, key := range priorityKeys {
+			if value, err := m.Get(key); err == nil && len(value) > 0 {
+				priorities = strings.Split(value, ",")
+				skips := make(map[string]bool)
+				for _, prio := range priorities {
+					skips[prio] = true
+				}
+
+				for _, otherPriority := range allPriorities {
+					if _, ok := skips[otherPriority]; !ok {
+						priorities = append(priorities, otherPriority)
+					}
+				}
+			}
+		}
+	}
+
+	if len(priorities) == 0 {
+		priorities = allPriorities
+	}
+
+	m.Debugf("Priority order: %s", priorities)
+
+	return priorities
 }
 
 func (m *Manifest) LoadStrategies(utility NameVer) ([]Strategy, error) {
