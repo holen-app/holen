@@ -59,23 +59,20 @@ func TestLoadAllStrategies(t *testing.T) {
 	manifest, err := LoadManifest(ParseName("jq"), "testdata/manifests/jq.yaml", config, logger)
 	assert.Nil(err)
 
-	allStrategies, err := manifest.LoadAllStrategies()
+	allStrategies, err := manifest.LoadAllStrategies(ParseName("jq"))
 	assert.Nil(err)
 
-	assert.Contains(allStrategies, "docker")
-	assert.Contains(allStrategies, "binary")
-	assert.Len(allStrategies["docker"], 1)
-	assert.Len(allStrategies["binary"], 2)
-	assert.NotEqual(allStrategies["binary"][0].(BinaryStrategy).Data.OSArchData, allStrategies["binary"][1].(BinaryStrategy).Data.OSArchData)
+	assert.Len(allStrategies, 3)
+	assert.NotEqual(allStrategies[1].(BinaryStrategy).Data.OSArchData, allStrategies[2].(BinaryStrategy).Data.OSArchData)
 
-	assert.Equal(allStrategies["binary"][0].(BinaryStrategy).Data.OSArchData,
+	assert.Equal(allStrategies[1].(BinaryStrategy).Data.OSArchData,
 		map[string]map[string]string{
 			"windows_amd64": map[string]string{"ext": "win64.exe", "md5sum": "abababab"},
 			"linux_amd64":   map[string]string{"ext": "linux64"},
 			"darwin_amd64":  map[string]string{"ext": "osx-amd64"},
 		})
 
-	assert.Equal(allStrategies["binary"][1].(BinaryStrategy).Data.OSArchData,
+	assert.Equal(allStrategies[2].(BinaryStrategy).Data.OSArchData,
 		map[string]map[string]string{
 			"windows_amd64": map[string]string{"ext": "win64.exe"},
 			"linux_amd64":   map[string]string{"ext": "linux-x86_64", "md5sum": "cdcdcdcd"},

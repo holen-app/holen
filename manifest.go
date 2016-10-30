@@ -327,12 +327,20 @@ func (m *Manifest) loadStrategy(strategyType string, strategyData map[interface{
 	return dummy, errors.New("No strategy type")
 }
 
-func (m *Manifest) LoadAllStrategies() (map[string][]Strategy, error) {
+func (m *Manifest) LoadAllStrategies(utility NameVer) ([]Strategy, error) {
 
-	allStrategies := make(map[string][]Strategy)
+	strategyOrder := m.StrategyOrder(utility)
+	var strategies []Strategy
 
 	commonUtility := m.generateCommon()
-	for strategyName, strategy := range m.Data.Strategies {
+	// for strategyName, strategy := range m.Data.Strategies {
+	for _, strategyName := range strategyOrder {
+		strategyName = strings.TrimSpace(strategyName)
+
+		strategy, ok := m.Data.Strategies[strategyName]
+		if !ok {
+			continue
+		}
 
 		versions := strategy["versions"].([]interface{})
 		delete(strategy, "versions")
@@ -348,10 +356,11 @@ func (m *Manifest) LoadAllStrategies() (map[string][]Strategy, error) {
 			if err != nil {
 				return nil, errors.Wrap(err, "error loading strategy")
 			}
-			allStrategies[strategyName] = append(allStrategies[strategyName], strat)
+			// allStrategies[strategyName] = append(allStrategies[strategyName], strat)
+			strategies = append(strategies, strat)
 		}
 	}
-	return allStrategies, nil
+	return strategies, nil
 }
 
 func (m *Manifest) Run(utility NameVer, args []string) error {

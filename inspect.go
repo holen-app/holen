@@ -57,17 +57,15 @@ func runInspect(inspectCommand InspectCommand, conf ConfigGetter, logger Logger)
 	}
 
 	if len(utility.Version) == 0 {
-		allStrategies, err := manifest.LoadAllStrategies()
+		allStrategies, err := manifest.LoadAllStrategies(utility)
 		if err != nil {
 			return err
 		}
 
-		for _, strategies := range allStrategies {
-			for _, strategy := range strategies {
-				err = strategy.Inspect()
-				if err != nil {
-					return err
-				}
+		for _, strategy := range allStrategies {
+			err = strategy.Inspect()
+			if err != nil {
+				return err
 			}
 		}
 	} else {
