@@ -6,6 +6,7 @@ import (
 	"os"
 	"path"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -101,6 +102,16 @@ func TestDockerCommandFailed(t *testing.T) {
 	err := td.Run([]string{"first", "second"})
 	assert.NotNil(err)
 	// assert.Contains(err.Error(), "bad output")
+}
+
+func TestDockerInspect(t *testing.T) {
+	assert := assert.New(t)
+
+	tu, td := newDockerStrategy()
+	td.Inspect()
+	completeOutput := strings.Join(tu.MemSystem.StdoutMessages, "")
+
+	assert.Contains(completeOutput, "final image: testdocker:1.9")
 }
 
 func newBinaryStrategy() (*TestUtils, *BinaryStrategy) {
@@ -289,4 +300,14 @@ func TestBinaryChecksumBinary(t *testing.T) {
 
 		assert.Equal(result, test.result)
 	}
+}
+
+func TestBinaryInspect(t *testing.T) {
+	assert := assert.New(t)
+
+	tu, tb := newBinaryStrategy()
+	tb.Inspect()
+	completeOutput := strings.Join(tu.MemSystem.StdoutMessages, "")
+
+	assert.Contains(completeOutput, "final url: https://github.com/testbinary/bin/releases/download/bin-2.1/jq-linux_amd64")
 }
