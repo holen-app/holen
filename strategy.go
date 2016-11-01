@@ -7,6 +7,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 
 	"github.com/kr/pretty"
 	"github.com/pkg/errors"
@@ -127,6 +128,17 @@ func (ds DockerStrategy) Run(extraArgs []string) error {
 	// 	return errors.Wrap(err, "can't pull image")
 	// }
 
+	args := ds.GenerateArgs(image, extraArgs)
+
+	err = ds.RunCommand("docker", args)
+	if err != nil {
+		return errors.Wrap(err, "can't run image")
+	}
+
+	return nil
+}
+
+func (ds DockerStrategy) GenerateArgs(image string, extraArgs []string) []string {
 	args := []string{"run"}
 	if ds.Data.Interactive {
 		args = append(args, "-i")
@@ -158,12 +170,7 @@ func (ds DockerStrategy) Run(extraArgs []string) error {
 	args = append(args, "--rm", image)
 	args = append(args, extraArgs...)
 
-	err = ds.RunCommand("docker", args)
-	if err != nil {
-		return errors.Wrap(err, "can't run image")
-	}
-
-	return nil
+	return args
 }
 
 func (ds DockerStrategy) Inspect() error {
@@ -176,6 +183,7 @@ func (ds DockerStrategy) Inspect() error {
 
 	ds.Stdoutf("Docker Strategy (version: %s):\n", ds.Data.Version)
 	ds.Stdoutf("  final image: %s\n", templated["Image"])
+	ds.Stdoutf("  final command: docker %s\n", strings.Join(ds.GenerateArgs(templated["Image"], []string{"[args]"}), " "))
 
 	return nil
 }

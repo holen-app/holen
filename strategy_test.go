@@ -112,6 +112,7 @@ func TestDockerInspect(t *testing.T) {
 	completeOutput := strings.Join(tu.MemSystem.StdoutMessages, "")
 
 	assert.Contains(completeOutput, "final image: testdocker:1.9")
+	assert.Contains(completeOutput, "final command: docker run --rm testdocker:1.9 [args]")
 }
 
 func newBinaryStrategy() (*TestUtils, *BinaryStrategy) {
@@ -131,11 +132,15 @@ func newBinaryStrategy() (*TestUtils, *BinaryStrategy) {
 			Runner:       tu.MemRunner,
 		},
 		Data: BinaryData{
-			Name:       "testbinary",
-			Desc:       "Test Binary Program",
-			Version:    "2.1",
-			BaseURL:    "https://github.com/testbinary/bin/releases/download/bin-{{.Version}}/jq-{{.OSArch}}",
-			OSArchData: make(map[string]map[string]string),
+			Name:    "testbinary",
+			Desc:    "Test Binary Program",
+			Version: "2.1",
+			BaseURL: "https://github.com/testbinary/bin/releases/download/bin-{{.Version}}/jq-{{.OSArch}}",
+			OSArchData: map[string]map[string]string{
+				"linux_amd64": map[string]string{
+					"md5sum": "d41d8cd98f00b204e9800998ecf8427e",
+				},
+			},
 		},
 	}
 }
@@ -145,7 +150,8 @@ func TestBinarySimple(t *testing.T) {
 	assert := assert.New(t)
 
 	tu, tb := newBinaryStrategy()
-	tb.Run([]string{"first", "second"})
+	err := tb.Run([]string{"first", "second"})
+	assert.Nil(err)
 
 	binPath := path.Join(os.Getenv("HOME"), ".local/share/holen/bin/testbinary--2.1")
 	remoteUrl := "https://github.com/testbinary/bin/releases/download/bin-2.1/jq-linux_amd64"
@@ -310,4 +316,5 @@ func TestBinaryInspect(t *testing.T) {
 	completeOutput := strings.Join(tu.MemSystem.StdoutMessages, "")
 
 	assert.Contains(completeOutput, "final url: https://github.com/testbinary/bin/releases/download/bin-2.1/jq-linux_amd64")
+	assert.Contains(completeOutput, "checksum with md5: d41d8cd98f00b204e9800998ecf8427e")
 }
