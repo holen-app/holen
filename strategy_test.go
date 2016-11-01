@@ -6,6 +6,7 @@ import (
 	"os"
 	"path"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -21,7 +22,7 @@ type TestUtils struct {
 
 func newDockerStrategy() (*TestUtils, *DockerStrategy) {
 	tu := &TestUtils{
-		MemSystem:     &MemSystem{runtime.GOOS, runtime.GOARCH, 1000, 1000, make(map[string]bool), []string{}, make(map[string][]string)},
+		MemSystem:     &MemSystem{runtime.GOOS, runtime.GOARCH, 1000, 1000, make(map[string]bool), []string{}, []string{}, make(map[string][]string)},
 		MemLogger:     &MemLogger{},
 		MemConfig:     &MemConfig{},
 		MemDownloader: &MemDownloader{},
@@ -103,9 +104,20 @@ func TestDockerCommandFailed(t *testing.T) {
 	// assert.Contains(err.Error(), "bad output")
 }
 
+func TestDockerInspect(t *testing.T) {
+	assert := assert.New(t)
+
+	tu, td := newDockerStrategy()
+	td.Inspect()
+	completeOutput := strings.Join(tu.MemSystem.StdoutMessages, "")
+
+	assert.Contains(completeOutput, "final image: testdocker:1.9")
+	assert.Contains(completeOutput, "final command: docker run --rm testdocker:1.9 [args]")
+}
+
 func newBinaryStrategy() (*TestUtils, *BinaryStrategy) {
 	tu := &TestUtils{
-		MemSystem:     &MemSystem{runtime.GOOS, runtime.GOARCH, 1000, 1000, make(map[string]bool), []string{}, make(map[string][]string)},
+		MemSystem:     &MemSystem{runtime.GOOS, runtime.GOARCH, 1000, 1000, make(map[string]bool), []string{}, []string{}, make(map[string][]string)},
 		MemLogger:     &MemLogger{},
 		MemConfig:     &MemConfig{},
 		MemDownloader: &MemDownloader{},
@@ -120,11 +132,15 @@ func newBinaryStrategy() (*TestUtils, *BinaryStrategy) {
 			Runner:       tu.MemRunner,
 		},
 		Data: BinaryData{
-			Name:       "testbinary",
-			Desc:       "Test Binary Program",
-			Version:    "2.1",
-			BaseURL:    "https://github.com/testbinary/bin/releases/download/bin-{{.Version}}/jq-{{.OSArch}}",
-			OSArchData: make(map[string]map[string]string),
+			Name:    "testbinary",
+			Desc:    "Test Binary Program",
+			Version: "2.1",
+			BaseURL: "https://github.com/testbinary/bin/releases/download/bin-{{.Version}}/jq-{{.OSArch}}",
+			OSArchData: map[string]map[string]string{
+				"linux_amd64": map[string]string{
+					"md5sum": "d41d8cd98f00b204e9800998ecf8427e",
+				},
+			},
 		},
 	}
 }
@@ -134,7 +150,8 @@ func TestBinarySimple(t *testing.T) {
 	assert := assert.New(t)
 
 	tu, tb := newBinaryStrategy()
-	tb.Run([]string{"first", "second"})
+	err := tb.Run([]string{"first", "second"})
+	assert.Nil(err)
 
 	binPath := path.Join(os.Getenv("HOME"), ".local/share/holen/bin/testbinary--2.1")
 	remoteUrl := "https://github.com/testbinary/bin/releases/download/bin-2.1/jq-linux_amd64"
@@ -144,8 +161,8 @@ func TestBinarySimple(t *testing.T) {
 	assert.Contains(tu.MemDownloader.Files[remoteUrl], path.Join(os.Getenv("HOME"), ".local/share/holen/tmp"))
 	assert.Contains(tu.MemDownloader.Files[remoteUrl], "testbinary--2.1")
 
-	assert.Contains(tu.MemSystem.UserMessages[0], "Downloading")
-	assert.Contains(tu.MemSystem.UserMessages[0], remoteUrl)
+	assert.Contains(tu.MemSystem.StderrMessages[0], "Downloading")
+	assert.Contains(tu.MemSystem.StderrMessages[0], remoteUrl)
 
 	assert.Equal(tu.MemRunner.History[0], fmt.Sprintf("%s first second", binPath))
 }
@@ -181,8 +198,8 @@ func TestBinaryArchive(t *testing.T) {
 	assert.Contains(tu.MemDownloader.Files[remoteUrl], path.Join(os.Getenv("HOME"), ".local/share/holen/tmp"))
 	assert.Contains(tu.MemDownloader.Files[remoteUrl], "testbinary-linux_amd64.zip")
 
-	assert.Contains(tu.MemSystem.UserMessages[0], "Downloading")
-	assert.Contains(tu.MemSystem.UserMessages[0], remoteUrl)
+	assert.Contains(tu.MemSystem.StderrMessages[0], "Downloading")
+	assert.Contains(tu.MemSystem.StderrMessages[0], remoteUrl)
 
 	assert.Equal(tu.MemRunner.History[0], fmt.Sprintf("%s first second", binPath))
 }
@@ -289,4 +306,15 @@ func TestBinaryChecksumBinary(t *testing.T) {
 
 		assert.Equal(result, test.result)
 	}
+}
+
+func TestBinaryInspect(t *testing.T) {
+	assert := assert.New(t)
+
+	tu, tb := newBinaryStrategy()
+	tb.Inspect()
+	completeOutput := strings.Join(tu.MemSystem.StdoutMessages, "")
+
+	assert.Contains(completeOutput, "final url: https://github.com/testbinary/bin/releases/download/bin-2.1/jq-linux_amd64")
+	assert.Contains(completeOutput, "checksum with md5: d41d8cd98f00b204e9800998ecf8427e")
 }

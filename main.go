@@ -8,7 +8,6 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	flags "github.com/jessevdk/go-flags"
-	"github.com/kardianos/osext"
 )
 
 // GlobalOptions are options that are used when holen is run directly.
@@ -37,24 +36,18 @@ func main() {
 		basename = utilityNameOverride
 	}
 
-	var selfPath string
-	var err error
-
-	if selfPathOverride := os.Getenv("HLN_SELF_PATH_OVERRIDE"); len(selfPathOverride) > 0 {
-		selfPath = selfPathOverride
-	} else {
-		selfPath, err = osext.Executable()
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
+	selfPath, err := findSelfPath()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
 	}
 
 	logrus.SetFormatter(&logrus.TextFormatter{FullTimestamp: true})
-	if basename == "holen" || basename == "hln" || strings.HasPrefix(basename, "holen") {
 
-		// configure logging
-		logrus.SetLevel(logrus.InfoLevel)
+	// configure logging
+	logrus.SetLevel(logrus.InfoLevel)
+
+	if basename == "holen" || basename == "hln" || strings.HasPrefix(basename, "holen") {
 
 		// options to change log level
 		globalOptions.Quiet = func(v string) {
@@ -71,9 +64,6 @@ func main() {
 			os.Exit(1)
 		}
 	} else {
-
-		// configure logging
-		logrus.SetLevel(logrus.WarnLevel)
 
 		// options to change log level
 		inlineOptions.Verbose = func(v string) {

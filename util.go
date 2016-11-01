@@ -9,6 +9,8 @@ import (
 	"io"
 	"os"
 	"strings"
+
+	"github.com/kardianos/osext"
 )
 
 type NameVer struct {
@@ -24,6 +26,33 @@ func ParseName(utility string) NameVer {
 	}
 
 	return NameVer{parts[0], version}
+}
+
+func findSelfPath() (string, error) {
+	var selfPath string
+	var err error
+	if selfPathOverride := os.Getenv("HLN_SELF_PATH_OVERRIDE"); len(selfPathOverride) > 0 {
+		return selfPathOverride, nil
+	} else {
+		selfPath, err = osext.Executable()
+		if err != nil {
+			return "", err
+		}
+	}
+	return selfPath, nil
+}
+
+func copyMap(m1 map[interface{}]interface{}) map[interface{}]interface{} {
+	newMap := make(map[interface{}]interface{})
+	for k, v := range m1 {
+		if _, typeOk := v.(map[interface{}]interface{}); typeOk {
+			newMap[k] = copyMap(v.(map[interface{}]interface{}))
+		} else {
+			newMap[k] = v
+		}
+	}
+
+	return newMap
 }
 
 func mergeMaps(m1, m2 map[interface{}]interface{}) map[interface{}]interface{} {

@@ -78,7 +78,7 @@ func (dmf DefaultManifestFinder) Find(utility NameVer) (*Manifest, error) {
 func LoadManifest(utility NameVer, manifestPath string, conf ConfigGetter, logger Logger) (*Manifest, error) {
 	md := ManifestData{}
 
-	logger.Infof("attemting to load: %s", manifestPath)
+	logger.Debugf("attemting to load: %s", manifestPath)
 	data, err := ioutil.ReadFile(manifestPath)
 	if err != nil {
 		return nil, errors.Wrap(err, "problems with reading file")
@@ -120,22 +120,66 @@ type Manifest struct {
 	Data ManifestData
 }
 
-func (m *Manifest) LoadStrategies(utility NameVer) ([]Strategy, error) {
-
+func (m *Manifest) StrategyOrder(utility NameVer) []string {
 	// default
-	priority := "docker,binary"
+	allPriorities := []string{"docker", "binary", "cmdio"}
 
-	if configPriority, err := m.Get("strategy.priority"); err == nil && len(configPriority) > 0 {
-		priority = configPriority
+	priorities := []string{}
+
+	xPriorityKeys := []string{
+		fmt.Sprintf("strategy.%s.%s.xpriority", utility.Name, utility.Version),
+		fmt.Sprintf("strategy.%s.xpriority", utility.Name),
+		"strategy.xpriority",
 	}
 
-	m.Debugf("Priority order: %s", priority)
+	for _, key := range xPriorityKeys {
+		if value, err := m.Get(key); err == nil && len(value) > 0 {
+			priorities = strings.Split(value, ",")
+		}
+	}
 
+	if len(priorities) == 0 {
+
+		priorityKeys := []string{
+			fmt.Sprintf("strategy.%s.%s.priority", utility.Name, utility.Version),
+			fmt.Sprintf("strategy.%s.priority", utility.Name),
+			"strategy.priority",
+		}
+
+		for _, key := range priorityKeys {
+			if value, err := m.Get(key); err == nil && len(value) > 0 {
+				priorities = strings.Split(value, ",")
+				skips := make(map[string]bool)
+				for _, prio := range priorities {
+					skips[prio] = true
+				}
+
+				for _, otherPriority := range allPriorities {
+					if _, ok := skips[otherPriority]; !ok {
+						priorities = append(priorities, otherPriority)
+					}
+				}
+			}
+		}
+	}
+
+	if len(priorities) == 0 {
+		priorities = allPriorities
+	}
+
+	m.Debugf("Priority order: %s", priorities)
+
+	return priorities
+}
+
+func (m *Manifest) LoadStrategies(utility NameVer) ([]Strategy, error) {
+
+	strategyOrder := m.StrategyOrder(utility)
 	var strategies []Strategy
 
 	var selectedStrategy string
 	var foundStrategy map[interface{}]interface{}
-	for _, try := range strings.Split(priority, ",") {
+	for _, try := range strategyOrder {
 		try = strings.TrimSpace(try)
 		if strategy, strategyOk := m.Data.Strategies[try]; strategyOk {
 			selectedStrategy = try
@@ -168,97 +212,154 @@ func (m *Manifest) LoadStrategies(utility NameVer) ([]Strategy, error) {
 			// fmt.Printf("%v\n", final)
 
 			// handle common keys
-			origOsArch, osArchMapOk := final["os_arch"]
-
-			osArchData := make(map[string]map[string]string)
-			if osArchMapOk {
-				for k, v := range origOsArch.(map[interface{}]interface{}) {
-					archMap := make(map[string]string)
-					if v != nil {
-						for k2, v2 := range v.(map[interface{}]interface{}) {
-							archMap[k2.(string)] = v2.(string)
-						}
-					}
-					osArchData[k.(string)] = archMap
-				}
+			var osArchData map[string]map[string]string
+			if origOsArch, osArchMapOk := final["os_arch"]; osArchMapOk {
+				osArchData = m.processOSArchMap(origOsArch)
 			}
 
-			commonUtility := &StrategyCommon{
-				System:       m.System,
-				Logger:       m.Logger,
-				ConfigGetter: m.ConfigGetter,
-				Downloader:   m.Downloader,
-				Runner:       m.Runner,
-			}
+			commonUtility := m.generateCommon()
 
 			// handle strategy specific keys
-			if selectedStrategy == "docker" {
-				mountPwd, mountPwdOk := final["mount_pwd"]
-				dockerConn, dockerConnOk := final["docker_conn"]
-				interactive, interactiveOk := final["interactive"]
-				pidHost, pidHostOk := final["pid_host"]
-				terminal, terminalOk := final["terminal"]
-				image, imageOk := final["image"]
-				mountPwdAs, mountPwdAsOk := final["mount_pwd_as"]
-				runAsUser, runAsUserOk := final["run_as_user"]
-
-				if !imageOk {
-					return strategies, errors.New("At least 'image' needed for docker strategy to work")
-				}
-
-				if !terminalOk {
-					terminal = ""
-				}
-				if !mountPwdAsOk {
-					mountPwdAs = ""
-				}
-
-				strategies = append(strategies, DockerStrategy{
-					StrategyCommon: commonUtility,
-					Data: DockerData{
-						Name:        m.Data.Name,
-						Desc:        m.Data.Desc,
-						Version:     final["version"].(string),
-						Image:       image.(string),
-						MountPwd:    mountPwdOk && mountPwd.(bool),
-						DockerConn:  dockerConnOk && dockerConn.(bool),
-						Interactive: !interactiveOk || interactive.(bool),
-						PidHost:     pidHostOk && pidHost.(bool),
-						Terminal:    terminal.(string),
-						MountPwdAs:  mountPwdAs.(string),
-						RunAsUser:   runAsUserOk && runAsUser.(bool),
-						OSArchData:  osArchData,
-					},
-				})
-			} else if selectedStrategy == "binary" {
-				baseURL, baseURLOk := final["base_url"]
-				unpackPath, unpackPathOk := final["unpack_path"]
-
-				if !baseURLOk {
-					return strategies, errors.New("At least 'base_url' needed for binary strategy to work")
-				}
-				if !unpackPathOk {
-					unpackPath = ""
-				}
-
-				strategies = append(strategies, BinaryStrategy{
-					StrategyCommon: commonUtility,
-					Data: BinaryData{
-						Name:       m.Data.Name,
-						Desc:       m.Data.Desc,
-						Version:    final["version"].(string),
-						BaseURL:    baseURL.(string),
-						UnpackPath: unpackPath.(string),
-						OSArchData: osArchData,
-					},
-				})
+			strat, err := m.loadStrategy(selectedStrategy, final, commonUtility, osArchData)
+			if err != nil {
+				return strategies, errors.Wrap(err, "error loading strategy")
 			}
 
+			strategies = append(strategies, strat)
 		}
 	}
 
 	m.Debugf("found strategies: %# v", pretty.Formatter(strategies))
 
+	return strategies, nil
+}
+
+func (m *Manifest) generateCommon() *StrategyCommon {
+	return &StrategyCommon{
+		System:       m.System,
+		Logger:       m.Logger,
+		ConfigGetter: m.ConfigGetter,
+		Downloader:   m.Downloader,
+		Runner:       m.Runner,
+	}
+}
+
+func (m *Manifest) processOSArchMap(in interface{}) map[string]map[string]string {
+	osArchData := make(map[string]map[string]string)
+	for k, v := range in.(map[interface{}]interface{}) {
+		archMap := make(map[string]string)
+		if v != nil {
+			for k2, v2 := range v.(map[interface{}]interface{}) {
+				archMap[k2.(string)] = v2.(string)
+			}
+		}
+		osArchData[k.(string)] = archMap
+	}
+
+	return osArchData
+}
+
+func (m *Manifest) loadStrategy(strategyType string, strategyData map[interface{}]interface{}, common *StrategyCommon, osArchData map[string]map[string]string) (Strategy, error) {
+	var dummy Strategy
+
+	if strategyType == "docker" {
+		mountPwd, mountPwdOk := strategyData["mount_pwd"]
+		dockerConn, dockerConnOk := strategyData["docker_conn"]
+		interactive, interactiveOk := strategyData["interactive"]
+		pidHost, pidHostOk := strategyData["pid_host"]
+		terminal, terminalOk := strategyData["terminal"]
+		image, imageOk := strategyData["image"]
+		mountPwdAs, mountPwdAsOk := strategyData["mount_pwd_as"]
+		runAsUser, runAsUserOk := strategyData["run_as_user"]
+
+		if !imageOk {
+			return dummy, errors.New("At least 'image' needed for docker strategy to work")
+		}
+
+		if !terminalOk {
+			terminal = ""
+		}
+		if !mountPwdAsOk {
+			mountPwdAs = ""
+		}
+
+		return DockerStrategy{
+			StrategyCommon: common,
+			Data: DockerData{
+				Name:        m.Data.Name,
+				Desc:        m.Data.Desc,
+				Version:     strategyData["version"].(string),
+				Image:       image.(string),
+				MountPwd:    mountPwdOk && mountPwd.(bool),
+				DockerConn:  dockerConnOk && dockerConn.(bool),
+				Interactive: !interactiveOk || interactive.(bool),
+				PidHost:     pidHostOk && pidHost.(bool),
+				Terminal:    terminal.(string),
+				MountPwdAs:  mountPwdAs.(string),
+				RunAsUser:   runAsUserOk && runAsUser.(bool),
+				OSArchData:  osArchData,
+			},
+		}, nil
+	} else if strategyType == "binary" {
+		baseURL, baseURLOk := strategyData["base_url"]
+		unpackPath, unpackPathOk := strategyData["unpack_path"]
+
+		if !baseURLOk {
+			return dummy, errors.New("At least 'base_url' needed for binary strategy to work")
+		}
+		if !unpackPathOk {
+			unpackPath = ""
+		}
+
+		return BinaryStrategy{
+			StrategyCommon: common,
+			Data: BinaryData{
+				Name:       m.Data.Name,
+				Desc:       m.Data.Desc,
+				Version:    strategyData["version"].(string),
+				BaseURL:    baseURL.(string),
+				UnpackPath: unpackPath.(string),
+				OSArchData: osArchData,
+			},
+		}, nil
+	}
+
+	return dummy, errors.New("No strategy type")
+}
+
+func (m *Manifest) LoadAllStrategies(utility NameVer) ([]Strategy, error) {
+
+	strategyOrder := m.StrategyOrder(utility)
+	var strategies []Strategy
+
+	commonUtility := m.generateCommon()
+	// for strategyName, strategy := range m.Data.Strategies {
+	for _, strategyName := range strategyOrder {
+		strategyName = strings.TrimSpace(strategyName)
+
+		strategy, ok := m.Data.Strategies[strategyName]
+		if !ok {
+			continue
+		}
+
+		versions := strategy["versions"].([]interface{})
+		delete(strategy, "versions")
+
+		for _, version := range versions {
+			final := mergeMaps(copyMap(strategy), version.(map[interface{}]interface{}))
+			var osArchData map[string]map[string]string
+			if origOsArch, osArchMapOk := final["os_arch"]; osArchMapOk {
+				osArchData = m.processOSArchMap(origOsArch)
+			}
+
+			strat, err := m.loadStrategy(strategyName, final, commonUtility, osArchData)
+			if err != nil {
+				return nil, errors.Wrap(err, "error loading strategy")
+			}
+			// allStrategies[strategyName] = append(allStrategies[strategyName], strat)
+			strategies = append(strategies, strat)
+		}
+	}
 	return strategies, nil
 }
 
