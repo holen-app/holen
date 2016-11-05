@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"sort"
 	"strings"
 
 	"github.com/kr/pretty"
@@ -14,47 +15,27 @@ import (
 
 type ManifestFinder interface {
 	Find(NameVer) (*Manifest, error)
+	List() error
 }
 
 type DefaultManifestFinder struct {
 	Logger
 	ConfigGetter
+	System
 	SelfPath string
 }
 
-func NewManifestFinder(selfPath string, conf ConfigGetter, logger Logger) (*DefaultManifestFinder, error) {
+func NewManifestFinder(selfPath string, conf ConfigGetter, logger Logger, system System) (*DefaultManifestFinder, error) {
 	return &DefaultManifestFinder{
 		Logger:       logger,
 		ConfigGetter: conf,
+		System:       system,
 		SelfPath:     selfPath,
 	}, nil
 }
 
 func (dmf DefaultManifestFinder) Find(utility NameVer) (*Manifest, error) {
-	var paths []string
-
-	holenPath := os.Getenv("HLN_PATH")
-	if len(holenPath) > 0 {
-		paths = append(paths, holenPath)
-	}
-
-	configHolenPath, err := dmf.Get("manifest.path")
-	if err == nil && len(configHolenPath) > 0 {
-		paths = append(paths, configHolenPath)
-	}
-
-	holenPathPost := os.Getenv("HLN_PATH_POST")
-	if len(holenPathPost) > 0 {
-		paths = append(paths, holenPathPost)
-	}
-
-	allPaths := strings.Join(paths, ":")
-
-	if len(allPaths) == 0 {
-		allPaths = path.Join(path.Dir(dmf.SelfPath), "manifests")
-	}
-
-	dmf.Debugf("all paths: %s", allPaths)
+	allPaths := dmf.Paths()
 
 	var manifestPath string
 	for _, p := range strings.Split(allPaths, ":") {
@@ -72,10 +53,79 @@ func (dmf DefaultManifestFinder) Find(utility NameVer) (*Manifest, error) {
 		return nil, fmt.Errorf("unable to find manifest for %s", utility.Name)
 	}
 
-	return LoadManifest(utility, manifestPath, dmf.ConfigGetter, dmf.Logger)
+	return LoadManifest(utility, manifestPath, dmf.ConfigGetter, dmf.Logger, dmf.System)
 }
 
-func LoadManifest(utility NameVer, manifestPath string, conf ConfigGetter, logger Logger) (*Manifest, error) {
+func (dmf DefaultManifestFinder) Paths() string {
+
+	var paths []string
+
+	holenPath := os.Getenv("HLN_PATH")
+	if len(holenPath) > 0 {
+		paths = append(paths, holenPath)
+	}
+
+	configHolenPath, err := dmf.Get("manifest.path")
+	if err == nil && len(configHolenPath) > 0 {
+		paths = append(paths, configHolenPath)
+	}
+
+	holenPathPost := os.Getenv("HLN_PATH_POST")
+	if len(holenPathPost) > 0 {
+		paths = append(paths, holenPathPost)
+	}
+
+	paths = append(paths, path.Join(path.Dir(dmf.SelfPath), "manifests"))
+
+	allPaths := strings.Join(paths, ":")
+
+	dmf.Debugf("all paths: %s", allPaths)
+
+	return allPaths
+}
+
+func (dmf DefaultManifestFinder) List() error {
+	allPaths := dmf.Paths()
+
+	utilityInfo := make(map[string]int)
+	for _, p := range strings.Split(allPaths, ":") {
+		if _, err := os.Stat(p); os.IsNotExist(err) {
+			continue
+		}
+
+		files, err := ioutil.ReadDir(p)
+		if err != nil {
+			return err
+		}
+
+		for _, file := range files {
+			if strings.HasSuffix(file.Name(), ".yaml") {
+				name := strings.TrimSuffix(file.Name(), ".yaml")
+				utilityInfo[name]++
+			}
+		}
+	}
+
+	utilityNames := make([]string, len(utilityInfo))
+
+	// from http://stackoverflow.com/a/27848197
+	i := 0
+	for name := range utilityInfo {
+		utilityNames[i] = name
+		i++
+	}
+	// end from http://stackoverflow.com/a/27848197
+
+	sort.Strings(utilityNames)
+
+	for _, name := range utilityNames {
+		dmf.Stdoutf("%v\n", name)
+	}
+
+	return nil
+}
+
+func LoadManifest(utility NameVer, manifestPath string, conf ConfigGetter, logger Logger, system System) (*Manifest, error) {
 	md := ManifestData{}
 
 	logger.Debugf("attemting to load: %s", manifestPath)
@@ -97,7 +147,7 @@ func LoadManifest(utility NameVer, manifestPath string, conf ConfigGetter, logge
 		ConfigGetter: conf,
 		Data:         md,
 		Runner:       runner,
-		System:       &DefaultSystem{},
+		System:       system,
 		Downloader:   &DefaultDownloader{logger, runner},
 	}
 	logger.Debugf("manifest found: %# v", pretty.Formatter(manifest))

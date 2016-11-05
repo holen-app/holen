@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -19,8 +18,9 @@ func TestRun(t *testing.T) {
 	wd, _ := os.Getwd()
 	logger := &MemLogger{}
 	config := &MemConfig{}
+	system := NewMemSystem()
 	config.Set("strategy.priority", "binary,docker")
-	manifestFinder, err := NewManifestFinder(path.Join(wd, "testdata", "manifests"), config, logger)
+	manifestFinder, err := NewManifestFinder(path.Join(wd, "testdata", "manifests"), config, logger, system)
 	assert.Nil(err)
 	assert.NotNil(manifestFinder)
 
@@ -29,7 +29,6 @@ func TestRun(t *testing.T) {
 
 	runner := &MemRunner{}
 	downloader := &MemDownloader{}
-	system := &MemSystem{runtime.GOOS, runtime.GOARCH, 1000, 1000, make(map[string]bool), []string{}, []string{}, make(map[string][]string)}
 	manifest.Runner = runner
 	manifest.Downloader = downloader
 	manifest.System = system
@@ -55,8 +54,9 @@ func TestLoadAllStrategies(t *testing.T) {
 
 	logger := &MemLogger{}
 	config := &MemConfig{}
+	system := NewMemSystem()
 
-	manifest, err := LoadManifest(ParseName("jq"), "testdata/manifests/jq.yaml", config, logger)
+	manifest, err := LoadManifest(ParseName("jq"), "testdata/manifests/jq.yaml", config, logger, system)
 	assert.Nil(err)
 
 	allStrategies, err := manifest.LoadAllStrategies(ParseName("jq"))
@@ -185,8 +185,9 @@ func TestStrategyOrder(t *testing.T) {
 	for _, test := range strategyOrderTests {
 		logger := &MemLogger{}
 		config := &MemConfig{}
+		system := NewMemSystem()
 
-		manifest, err := LoadManifest(ParseName(test.utility), "testdata/manifests/jq.yaml", config, logger)
+		manifest, err := LoadManifest(ParseName(test.utility), "testdata/manifests/jq.yaml", config, logger, system)
 		assert.Nil(err)
 
 		test.adjustment(config)

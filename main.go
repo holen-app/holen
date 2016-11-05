@@ -93,8 +93,7 @@ func RunUtility(selfPath, utility string, args []string) error {
 		return err
 	}
 
-	logger := &LogrusLogger{}
-	manifestFinder, err := NewManifestFinder(selfPath, conf, logger)
+	manifestFinder, err := NewManifestFinder(selfPath, conf, &LogrusLogger{}, &DefaultSystem{})
 	if err != nil {
 		return err
 	}

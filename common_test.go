@@ -5,6 +5,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
 	"strings"
 )
 
@@ -130,6 +131,19 @@ type MemSystem struct {
 	StderrMessages []string
 	StdoutMessages []string
 	ArchiveFiles   map[string][]string
+}
+
+func NewMemSystem() *MemSystem {
+	return &MemSystem{
+		runtime.GOOS,
+		runtime.GOARCH,
+		1000,
+		1000,
+		make(map[string]bool),
+		[]string{},
+		[]string{},
+		make(map[string][]string),
+	}
 }
 
 func (ms MemSystem) OS() string {
