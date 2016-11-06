@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -192,5 +193,59 @@ func TestStrategyOrder(t *testing.T) {
 
 		test.adjustment(config)
 		assert.Equal(manifest.StrategyOrder(ParseName(test.utility)), test.result)
+	}
+}
+
+func TestPaths(t *testing.T) {
+	assert := assert.New(t)
+
+	wd, _ := os.Getwd()
+	localDir := path.Join(wd, "testdata", "manifests")
+
+	var pathsTests = []struct {
+		adjustment func(*MemConfig, *MemSystem)
+		result     string
+	}{
+		{
+			nil,
+			localDir,
+		},
+		{
+			func(config *MemConfig, sys *MemSystem) {
+				sys.Setenv("HLN_PATH", "/path/one")
+			},
+			strings.Join([]string{"/path/one", localDir}, ":"),
+		},
+		{
+			func(config *MemConfig, sys *MemSystem) {
+				sys.Setenv("HLN_PATH_POST", "/path/one")
+			},
+			strings.Join([]string{"/path/one", localDir}, ":"),
+		},
+		{
+			func(config *MemConfig, sys *MemSystem) {
+				sys.Setenv("HLN_PATH", "/path/one")
+				sys.Setenv("HLN_PATH_POST", "/path/two")
+				config.Set("manifest.path", "/path/config")
+			},
+			strings.Join([]string{"/path/one", "/path/config", "/path/two", localDir}, ":"),
+		},
+	}
+
+	for _, test := range pathsTests {
+
+		logger := &MemLogger{}
+		config := &MemConfig{}
+		system := NewMemSystem()
+
+		manifestFinder, err := NewManifestFinder(path.Join(wd, "testdata", "holen"), config, logger, system)
+		assert.Nil(err)
+
+		if test.adjustment != nil {
+			test.adjustment(config, system)
+		}
+
+		result := manifestFinder.Paths()
+		assert.Equal(result, test.result)
 	}
 }
