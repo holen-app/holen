@@ -36,12 +36,12 @@ func TestRun(t *testing.T) {
 	err = manifest.Run(nameVer, []string{"."})
 	assert.Nil(err)
 
-	localPath := path.Join(os.Getenv("HOME"), ".local/share/holen/bin/jq--1.5")
+	localPath := path.Join(system.Getenv("HOME"), ".local/share/holen/bin/jq--1.5")
 	remoteUrl := "https://github.com/stedolan/jq/releases/download/jq-1.5/jq-linux64"
 
 	// check download
 	assert.Contains(downloader.Files, remoteUrl)
-	assert.Contains(downloader.Files[remoteUrl], path.Join(os.Getenv("HOME"), ".local/share/holen/tmp"))
+	assert.Contains(downloader.Files[remoteUrl], path.Join(system.Getenv("HOME"), ".local/share/holen/tmp"))
 	assert.Contains(downloader.Files[remoteUrl], "jq--1.5")
 
 	// check run

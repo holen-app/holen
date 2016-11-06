@@ -5,7 +5,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -22,7 +21,7 @@ type TestUtils struct {
 
 func newDockerStrategy() (*TestUtils, *DockerStrategy) {
 	tu := &TestUtils{
-		MemSystem:     &MemSystem{runtime.GOOS, runtime.GOARCH, 1000, 1000, make(map[string]bool), []string{}, []string{}, make(map[string][]string)},
+		MemSystem:     NewMemSystem(),
 		MemLogger:     &MemLogger{},
 		MemConfig:     &MemConfig{},
 		MemDownloader: &MemDownloader{},
@@ -117,7 +116,7 @@ func TestDockerInspect(t *testing.T) {
 
 func newBinaryStrategy() (*TestUtils, *BinaryStrategy) {
 	tu := &TestUtils{
-		MemSystem:     &MemSystem{runtime.GOOS, runtime.GOARCH, 1000, 1000, make(map[string]bool), []string{}, []string{}, make(map[string][]string)},
+		MemSystem:     NewMemSystem(),
 		MemLogger:     &MemLogger{},
 		MemConfig:     &MemConfig{},
 		MemDownloader: &MemDownloader{},
@@ -153,12 +152,12 @@ func TestBinarySimple(t *testing.T) {
 	err := tb.Run([]string{"first", "second"})
 	assert.Nil(err)
 
-	binPath := path.Join(os.Getenv("HOME"), ".local/share/holen/bin/testbinary--2.1")
+	binPath := path.Join(tu.MemSystem.Getenv("HOME"), ".local/share/holen/bin/testbinary--2.1")
 	remoteUrl := "https://github.com/testbinary/bin/releases/download/bin-2.1/jq-linux_amd64"
 
 	// check download
 	assert.Contains(tu.MemDownloader.Files, remoteUrl)
-	assert.Contains(tu.MemDownloader.Files[remoteUrl], path.Join(os.Getenv("HOME"), ".local/share/holen/tmp"))
+	assert.Contains(tu.MemDownloader.Files[remoteUrl], path.Join(tu.MemSystem.Getenv("HOME"), ".local/share/holen/tmp"))
 	assert.Contains(tu.MemDownloader.Files[remoteUrl], "testbinary--2.1")
 
 	assert.Contains(tu.MemSystem.StderrMessages[0], "Downloading")
@@ -190,12 +189,12 @@ func TestBinaryArchive(t *testing.T) {
 	err := tb.Run([]string{"first", "second"})
 	assert.Nil(err)
 
-	binPath := path.Join(os.Getenv("HOME"), ".local/share/holen/bin/testbinary--2.1")
+	binPath := path.Join(tu.MemSystem.Getenv("HOME"), ".local/share/holen/bin/testbinary--2.1")
 	remoteUrl := "https://github.com/testbinary/bin/releases/download/bin-2.1/testbinary-linux_amd64.zip"
 
 	// check download
 	assert.Contains(tu.MemDownloader.Files, remoteUrl)
-	assert.Contains(tu.MemDownloader.Files[remoteUrl], path.Join(os.Getenv("HOME"), ".local/share/holen/tmp"))
+	assert.Contains(tu.MemDownloader.Files[remoteUrl], path.Join(tu.MemSystem.Getenv("HOME"), ".local/share/holen/tmp"))
 	assert.Contains(tu.MemDownloader.Files[remoteUrl], "testbinary-linux_amd64.zip")
 
 	assert.Contains(tu.MemSystem.StderrMessages[0], "Downloading")
@@ -211,31 +210,25 @@ func TestBinaryDownloadPath(t *testing.T) {
 		adjustment func(*TestUtils)
 		err        error
 		result     string
-		cleanup    func(*TestUtils)
 	}{
 		{
 			nil,
 			nil,
 			path.Join(os.Getenv("HOME"), ".local/share/holen/bin"),
-			nil,
 		},
 		{
 			func(tu *TestUtils) {
-				os.Setenv("XDG_DATA_HOME", "/tmp")
+				tu.MemSystem.Setenv("XDG_DATA_HOME", "/tmp")
 			},
 			nil,
 			"/tmp/holen/bin",
-			func(tu *TestUtils) {
-				os.Setenv("XDG_DATA_HOME", "")
-			},
 		},
 		{
 			func(tu *TestUtils) {
-				os.Setenv("HOME", "")
+				tu.MemSystem.Setenv("HOME", "")
 			},
 			fmt.Errorf("$HOME not found"),
 			"",
-			func(tu *TestUtils) { return },
 		},
 	}
 
@@ -253,9 +246,6 @@ func TestBinaryDownloadPath(t *testing.T) {
 			assert.NotNil(err)
 		}
 		assert.Equal(result, test.result)
-		if test.cleanup != nil {
-			test.cleanup(tu)
-		}
 	}
 }
 

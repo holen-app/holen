@@ -60,7 +60,7 @@ func (dmf DefaultManifestFinder) Paths() string {
 
 	var paths []string
 
-	holenPath := os.Getenv("HLN_PATH")
+	holenPath := dmf.Getenv("HLN_PATH")
 	if len(holenPath) > 0 {
 		paths = append(paths, holenPath)
 	}
@@ -70,7 +70,7 @@ func (dmf DefaultManifestFinder) Paths() string {
 		paths = append(paths, configHolenPath)
 	}
 
-	holenPathPost := os.Getenv("HLN_PATH_POST")
+	holenPathPost := dmf.Getenv("HLN_PATH_POST")
 	if len(holenPathPost) > 0 {
 		paths = append(paths, holenPathPost)
 	}

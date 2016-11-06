@@ -192,11 +192,11 @@ func (bs BinaryStrategy) localHolenPath() (string, error) {
 	var holenPath string
 	if configDataPath, err := bs.Get("holen.datapath"); err == nil && len(configDataPath) > 0 {
 		holenPath = configDataPath
-	} else if xdgDataHome := os.Getenv("XDG_DATA_HOME"); len(xdgDataHome) > 0 {
+	} else if xdgDataHome := bs.Getenv("XDG_DATA_HOME"); len(xdgDataHome) > 0 {
 		holenPath = filepath.Join(xdgDataHome, "holen")
 	} else {
 		var home string
-		if home = os.Getenv("HOME"); len(home) == 0 {
+		if home = bs.Getenv("HOME"); len(home) == 0 {
 			return "", fmt.Errorf("$HOME environment variable not found")
 		}
 		holenPath = filepath.Join(home, ".local", "share", "holen")
