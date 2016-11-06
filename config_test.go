@@ -15,21 +15,22 @@ func TestCreate(t *testing.T) {
 	tempdir, _ := ioutil.TempDir("", "holen")
 	defer os.RemoveAll(tempdir)
 
-	os.Setenv("HOME", tempdir)
+	system := NewMemSystem()
+	system.Setenv("HOME", tempdir)
 
-	conf, err := NewDefaultConfigClient()
+	conf, err := NewDefaultConfigClient(system)
 	assert.Equal(conf.systemConfig, "/etc/holenconfig")
 	assert.Equal(conf.userConfig, fmt.Sprintf("%s/.config/holen/config", tempdir))
 	assert.Nil(err)
 
 	tempdir2, _ := ioutil.TempDir("", "holen")
 	defer os.RemoveAll(tempdir2)
-	os.Setenv("XDG_CONFIG_HOME", tempdir2)
+	system.Setenv("XDG_CONFIG_HOME", tempdir2)
 	defer os.Unsetenv("XDG_CONFIG_HOME")
-	os.Setenv("HOLEN_SYSTEM_CONFIG", tempdir2)
+	system.Setenv("HOLEN_SYSTEM_CONFIG", tempdir2)
 	defer os.Unsetenv("HOLEN_SYSTEM_CONFIG")
 
-	conf, err = NewDefaultConfigClient()
+	conf, err = NewDefaultConfigClient(system)
 	assert.Equal(conf.systemConfig, fmt.Sprintf("%s/holenconfig", tempdir2))
 	assert.Equal(conf.userConfig, fmt.Sprintf("%s/holen/config", tempdir2))
 	assert.Nil(err)
@@ -43,11 +44,12 @@ func TestSetGetUnset(t *testing.T) {
 	tempdir, _ := ioutil.TempDir("", "holen")
 	defer os.RemoveAll(tempdir)
 
-	os.Setenv("HOME", tempdir)
-	os.Setenv("HOLEN_SYSTEM_CONFIG", tempdir)
+	system := NewMemSystem()
+	system.Setenv("HOME", tempdir)
+	system.Setenv("HOLEN_SYSTEM_CONFIG", tempdir)
 	defer os.Unsetenv("HOLEN_SYSTEM_CONFIG")
 
-	conf, err := NewDefaultConfigClient()
+	conf, err := NewDefaultConfigClient(system)
 
 	err = conf.Set(true, "section.key", "value")
 	assert.Nil(err)

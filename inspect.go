@@ -18,12 +18,13 @@ var inspectCommand InspectCommand
 
 // Execute inspecting utilities and how they are run
 func (x *InspectCommand) Execute(args []string) error {
-	conf, err := NewDefaultConfigClient()
+	system := &DefaultSystem{}
+	conf, err := NewDefaultConfigClient(system)
 	if err != nil {
 		return err
 	}
 
-	return runInspect(inspectCommand, conf, &LogrusLogger{}, &DefaultSystem{})
+	return runInspect(inspectCommand, conf, &LogrusLogger{}, system)
 }
 
 func runInspect(inspectCommand InspectCommand, conf ConfigGetter, logger Logger, system System) error {

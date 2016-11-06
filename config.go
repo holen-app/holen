@@ -20,7 +20,7 @@ var configCommand ConfigCommand
 
 // Execute handles setting, getting, and listing configuration values.
 func (x *ConfigCommand) Execute(args []string) error {
-	conf, err := NewDefaultConfigClient()
+	conf, err := NewDefaultConfigClient(&DefaultSystem{})
 	if err != nil {
 		return err
 	}
