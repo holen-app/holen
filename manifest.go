@@ -5,8 +5,10 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
 	"sort"
 	"strings"
+	"syscall"
 
 	"github.com/kr/pretty"
 	"github.com/pkg/errors"
@@ -16,6 +18,7 @@ import (
 type ManifestFinder interface {
 	Find(NameVer) (*Manifest, error)
 	List() error
+	Link(string, string, string) error
 }
 
 type DefaultManifestFinder struct {
@@ -84,21 +87,10 @@ func (dmf DefaultManifestFinder) Paths() []string {
 func (dmf DefaultManifestFinder) List() error {
 	utilityInfo := make(map[string]int)
 	for _, p := range dmf.Paths() {
-		if _, err := os.Stat(p); os.IsNotExist(err) {
-			continue
-		}
-
-		files, err := ioutil.ReadDir(p)
-		if err != nil {
-			return err
-		}
-
-		for _, file := range files {
-			if strings.HasSuffix(file.Name(), ".yaml") {
-				name := strings.TrimSuffix(file.Name(), ".yaml")
-				utilityInfo[name]++
-			}
-		}
+		dmf.eachManifestPath(p, func(name, fileName string) error {
+			utilityInfo[name]++
+			return nil
+		})
 	}
 
 	utilityNames := make([]string, len(utilityInfo))
@@ -115,6 +107,81 @@ func (dmf DefaultManifestFinder) List() error {
 
 	for _, name := range utilityNames {
 		dmf.Stdoutf("%v\n", name)
+	}
+
+	return nil
+}
+
+func (dmf DefaultManifestFinder) eachManifestPath(manifestPath string, callback func(name, fileName string) error) error {
+	if _, err := os.Stat(manifestPath); os.IsNotExist(err) {
+		return nil
+	}
+
+	files, err := ioutil.ReadDir(manifestPath)
+	if err != nil {
+		return err
+	}
+
+	for _, file := range files {
+		if strings.HasSuffix(file.Name(), ".yaml") {
+			name := strings.TrimSuffix(file.Name(), ".yaml")
+			err := callback(name, file.Name())
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func (dmf DefaultManifestFinder) Link(manifestPath, holenPath, binPath string) error {
+
+	binPath, _ = filepath.Abs(binPath)
+	manifestPath, _ = filepath.Abs(manifestPath)
+
+	// TODO: should we create binPath if non-exist?
+
+	if len(holenPath) == 0 {
+		holenPath = dmf.SelfPath
+	}
+
+	dmf.Debugf("linking from utilities found in %s to %s in %s", manifestPath, holenPath, binPath)
+
+	// TODO: keep track of utilities that have been linked, so that manifest
+	// files later in the paths won't override them
+	err := dmf.eachManifestPath(manifestPath, func(name, fileName string) error {
+		dmf.Debugf(" linking %s", name)
+
+		fullBinPath := filepath.Join(binPath, name)
+		dmf.Debugf("  full bin path %s", fullBinPath)
+
+		relativePath, err := filepath.Rel(binPath, holenPath)
+		if err != nil {
+			return err
+		}
+		dmf.Debugf("  relative path %s", relativePath)
+
+		// TODO: also symlink all versions found in manifest file
+		err = os.Symlink(relativePath, fullBinPath)
+		if err != nil {
+			if linkerr, ok := err.(*os.LinkError); ok {
+				if errno, ok := linkerr.Err.(syscall.Errno); ok {
+					if errno == syscall.EEXIST {
+						// TODO: check if file is a symlink and if it points to
+						// the correct place.  if not the correct holen, fix it.
+						return nil
+					}
+				}
+			}
+			return err
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return err
 	}
 
 	return nil
