@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -204,23 +203,23 @@ func TestPaths(t *testing.T) {
 
 	var pathsTests = []struct {
 		adjustment func(*MemConfig, *MemSystem)
-		result     string
+		result     []string
 	}{
 		{
 			nil,
-			localDir,
+			[]string{localDir},
 		},
 		{
 			func(config *MemConfig, sys *MemSystem) {
-				sys.Setenv("HLN_PATH", "/path/one")
+				sys.Setenv("HLN_PATH", "/path/one:/path/two")
 			},
-			strings.Join([]string{"/path/one", localDir}, ":"),
+			[]string{"/path/one", "/path/two", localDir},
 		},
 		{
 			func(config *MemConfig, sys *MemSystem) {
-				sys.Setenv("HLN_PATH_POST", "/path/one")
+				sys.Setenv("HLN_PATH_POST", "/path/one:/path/two")
 			},
-			strings.Join([]string{"/path/one", localDir}, ":"),
+			[]string{"/path/one", "/path/two", localDir},
 		},
 		{
 			func(config *MemConfig, sys *MemSystem) {
@@ -228,7 +227,7 @@ func TestPaths(t *testing.T) {
 				sys.Setenv("HLN_PATH_POST", "/path/two")
 				config.Set("manifest.path", "/path/config")
 			},
-			strings.Join([]string{"/path/one", "/path/config", "/path/two", localDir}, ":"),
+			[]string{"/path/one", "/path/config", "/path/two", localDir},
 		},
 	}
 

@@ -35,10 +35,9 @@ func NewManifestFinder(selfPath string, conf ConfigGetter, logger Logger, system
 }
 
 func (dmf DefaultManifestFinder) Find(utility NameVer) (*Manifest, error) {
-	allPaths := dmf.Paths()
 
 	var manifestPath string
-	for _, p := range strings.Split(allPaths, ":") {
+	for _, p := range dmf.Paths() {
 
 		tryPath := path.Join(p, fmt.Sprintf("%s.yaml", utility.Name))
 		dmf.Debugf("trying: %s", tryPath)
@@ -56,39 +55,35 @@ func (dmf DefaultManifestFinder) Find(utility NameVer) (*Manifest, error) {
 	return LoadManifest(utility, manifestPath, dmf.ConfigGetter, dmf.Logger, dmf.System)
 }
 
-func (dmf DefaultManifestFinder) Paths() string {
+func (dmf DefaultManifestFinder) Paths() []string {
 
 	var paths []string
 
 	holenPath := dmf.Getenv("HLN_PATH")
 	if len(holenPath) > 0 {
-		paths = append(paths, holenPath)
+		paths = append(paths, strings.Split(holenPath, ":")...)
 	}
 
 	configHolenPath, err := dmf.Get("manifest.path")
 	if err == nil && len(configHolenPath) > 0 {
-		paths = append(paths, configHolenPath)
+		paths = append(paths, strings.Split(configHolenPath, ":")...)
 	}
 
 	holenPathPost := dmf.Getenv("HLN_PATH_POST")
 	if len(holenPathPost) > 0 {
-		paths = append(paths, holenPathPost)
+		paths = append(paths, strings.Split(holenPathPost, ":")...)
 	}
 
 	paths = append(paths, path.Join(path.Dir(dmf.SelfPath), "manifests"))
 
-	allPaths := strings.Join(paths, ":")
+	dmf.Debugf("all paths: %s", strings.Join(paths, ":"))
 
-	dmf.Debugf("all paths: %s", allPaths)
-
-	return allPaths
+	return paths
 }
 
 func (dmf DefaultManifestFinder) List() error {
-	allPaths := dmf.Paths()
-
 	utilityInfo := make(map[string]int)
-	for _, p := range strings.Split(allPaths, ":") {
+	for _, p := range dmf.Paths() {
 		if _, err := os.Stat(p); os.IsNotExist(err) {
 			continue
 		}
