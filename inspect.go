@@ -18,16 +18,16 @@ var inspectCommand InspectCommand
 
 // Execute inspecting utilities and how they are run
 func (x *InspectCommand) Execute(args []string) error {
-	conf, err := NewDefaultConfigClient()
+	system := &DefaultSystem{}
+	conf, err := NewDefaultConfigClient(system)
 	if err != nil {
 		return err
 	}
-	logger := &LogrusLogger{}
 
-	return runInspect(inspectCommand, conf, logger)
+	return runInspect(inspectCommand, conf, &LogrusLogger{}, system)
 }
 
-func runInspect(inspectCommand InspectCommand, conf ConfigGetter, logger Logger) error {
+func runInspect(inspectCommand InspectCommand, conf ConfigGetter, logger Logger, system System) error {
 	var err error
 
 	utility := NameVer{inspectCommand.Args.Name, inspectCommand.Version}
@@ -40,7 +40,7 @@ func runInspect(inspectCommand InspectCommand, conf ConfigGetter, logger Logger)
 			os.Exit(1)
 		}
 
-		manifestFinder, err := NewManifestFinder(selfPath, conf, logger)
+		manifestFinder, err := NewManifestFinder(selfPath, conf, logger, system)
 		if err != nil {
 			return err
 		}
@@ -50,7 +50,7 @@ func runInspect(inspectCommand InspectCommand, conf ConfigGetter, logger Logger)
 			return err
 		}
 	} else {
-		manifest, err = LoadManifest(utility, inspectCommand.Manifest, conf, logger)
+		manifest, err = LoadManifest(utility, inspectCommand.Manifest, conf, logger, system)
 		if err != nil {
 			return err
 		}

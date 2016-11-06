@@ -120,13 +120,13 @@ func splitKey(key string) (string, string) {
 	return parts[0], parts[1]
 }
 
-func NewDefaultConfigClient() (*RealConfigClient, error) {
+func NewDefaultConfigClient(system System) (*RealConfigClient, error) {
 	var baseDir string
-	if xdgConfigHome := os.Getenv("XDG_CONFIG_HOME"); len(xdgConfigHome) > 0 {
+	if xdgConfigHome := system.Getenv("XDG_CONFIG_HOME"); len(xdgConfigHome) > 0 {
 		baseDir = filepath.Join(xdgConfigHome, "holen")
 	} else {
 		var home string
-		if home = os.Getenv("HOME"); len(home) == 0 {
+		if home = system.Getenv("HOME"); len(home) == 0 {
 			return nil, fmt.Errorf("$HOME environment variable not found")
 		}
 		baseDir = filepath.Join(home, ".config", "holen")
@@ -134,7 +134,7 @@ func NewDefaultConfigClient() (*RealConfigClient, error) {
 	}
 
 	systemHome := "/etc"
-	if holenSystemEnv := os.Getenv("HOLEN_SYSTEM_CONFIG"); len(holenSystemEnv) > 0 {
+	if holenSystemEnv := system.Getenv("HOLEN_SYSTEM_CONFIG"); len(holenSystemEnv) > 0 {
 		systemHome = holenSystemEnv
 	}
 

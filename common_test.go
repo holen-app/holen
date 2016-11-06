@@ -5,6 +5,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
 	"strings"
 )
 
@@ -130,6 +131,21 @@ type MemSystem struct {
 	StderrMessages []string
 	StdoutMessages []string
 	ArchiveFiles   map[string][]string
+	Env            map[string]string
+}
+
+func NewMemSystem() *MemSystem {
+	return &MemSystem{
+		runtime.GOOS,
+		runtime.GOARCH,
+		1000,
+		1000,
+		make(map[string]bool),
+		[]string{},
+		[]string{},
+		make(map[string][]string),
+		map[string]string{"HOME": os.Getenv("HOME")},
+	}
 }
 
 func (ms MemSystem) OS() string {
@@ -177,4 +193,17 @@ func (ms *MemSystem) UnpackArchive(archive, destPath string) error {
 		}
 	}
 	return nil
+}
+
+func (ms *MemSystem) Getenv(key string) string {
+	val, ok := ms.Env[key]
+	if ok {
+		return val
+	}
+
+	return ""
+}
+
+func (ms *MemSystem) Setenv(key, value string) {
+	ms.Env[key] = value
 }

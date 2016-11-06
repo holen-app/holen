@@ -25,6 +25,7 @@ type System interface {
 	Stderrf(string, ...interface{})
 	Stdoutf(string, ...interface{})
 	UnpackArchive(string, string) error
+	Getenv(string) string
 }
 
 type DefaultSystem struct{}
@@ -82,6 +83,10 @@ func (ds DefaultSystem) UnpackArchive(archive, destPath string) error {
 	}
 
 	return nil
+}
+
+func (ds DefaultSystem) Getenv(key string) string {
+	return os.Getenv(key)
 }
 
 type Logger interface {

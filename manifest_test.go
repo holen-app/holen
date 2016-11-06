@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -19,8 +19,9 @@ func TestRun(t *testing.T) {
 	wd, _ := os.Getwd()
 	logger := &MemLogger{}
 	config := &MemConfig{}
+	system := NewMemSystem()
 	config.Set("strategy.priority", "binary,docker")
-	manifestFinder, err := NewManifestFinder(path.Join(wd, "testdata", "manifests"), config, logger)
+	manifestFinder, err := NewManifestFinder(path.Join(wd, "testdata", "manifests"), config, logger, system)
 	assert.Nil(err)
 	assert.NotNil(manifestFinder)
 
@@ -29,7 +30,6 @@ func TestRun(t *testing.T) {
 
 	runner := &MemRunner{}
 	downloader := &MemDownloader{}
-	system := &MemSystem{runtime.GOOS, runtime.GOARCH, 1000, 1000, make(map[string]bool), []string{}, []string{}, make(map[string][]string)}
 	manifest.Runner = runner
 	manifest.Downloader = downloader
 	manifest.System = system
@@ -37,12 +37,12 @@ func TestRun(t *testing.T) {
 	err = manifest.Run(nameVer, []string{"."})
 	assert.Nil(err)
 
-	localPath := path.Join(os.Getenv("HOME"), ".local/share/holen/bin/jq--1.5")
+	localPath := path.Join(system.Getenv("HOME"), ".local/share/holen/bin/jq--1.5")
 	remoteUrl := "https://github.com/stedolan/jq/releases/download/jq-1.5/jq-linux64"
 
 	// check download
 	assert.Contains(downloader.Files, remoteUrl)
-	assert.Contains(downloader.Files[remoteUrl], path.Join(os.Getenv("HOME"), ".local/share/holen/tmp"))
+	assert.Contains(downloader.Files[remoteUrl], path.Join(system.Getenv("HOME"), ".local/share/holen/tmp"))
 	assert.Contains(downloader.Files[remoteUrl], "jq--1.5")
 
 	// check run
@@ -55,8 +55,9 @@ func TestLoadAllStrategies(t *testing.T) {
 
 	logger := &MemLogger{}
 	config := &MemConfig{}
+	system := NewMemSystem()
 
-	manifest, err := LoadManifest(ParseName("jq"), "testdata/manifests/jq.yaml", config, logger)
+	manifest, err := LoadManifest(ParseName("jq"), "testdata/manifests/jq.yaml", config, logger, system)
 	assert.Nil(err)
 
 	allStrategies, err := manifest.LoadAllStrategies(ParseName("jq"))
@@ -185,11 +186,86 @@ func TestStrategyOrder(t *testing.T) {
 	for _, test := range strategyOrderTests {
 		logger := &MemLogger{}
 		config := &MemConfig{}
+		system := NewMemSystem()
 
-		manifest, err := LoadManifest(ParseName(test.utility), "testdata/manifests/jq.yaml", config, logger)
+		manifest, err := LoadManifest(ParseName(test.utility), "testdata/manifests/jq.yaml", config, logger, system)
 		assert.Nil(err)
 
 		test.adjustment(config)
 		assert.Equal(manifest.StrategyOrder(ParseName(test.utility)), test.result)
 	}
+}
+
+func TestPaths(t *testing.T) {
+	assert := assert.New(t)
+
+	wd, _ := os.Getwd()
+	localDir := path.Join(wd, "testdata", "manifests")
+
+	var pathsTests = []struct {
+		adjustment func(*MemConfig, *MemSystem)
+		result     string
+	}{
+		{
+			nil,
+			localDir,
+		},
+		{
+			func(config *MemConfig, sys *MemSystem) {
+				sys.Setenv("HLN_PATH", "/path/one")
+			},
+			strings.Join([]string{"/path/one", localDir}, ":"),
+		},
+		{
+			func(config *MemConfig, sys *MemSystem) {
+				sys.Setenv("HLN_PATH_POST", "/path/one")
+			},
+			strings.Join([]string{"/path/one", localDir}, ":"),
+		},
+		{
+			func(config *MemConfig, sys *MemSystem) {
+				sys.Setenv("HLN_PATH", "/path/one")
+				sys.Setenv("HLN_PATH_POST", "/path/two")
+				config.Set("manifest.path", "/path/config")
+			},
+			strings.Join([]string{"/path/one", "/path/config", "/path/two", localDir}, ":"),
+		},
+	}
+
+	for _, test := range pathsTests {
+
+		logger := &MemLogger{}
+		config := &MemConfig{}
+		system := NewMemSystem()
+
+		manifestFinder, err := NewManifestFinder(path.Join(wd, "testdata", "holen"), config, logger, system)
+		assert.Nil(err)
+
+		if test.adjustment != nil {
+			test.adjustment(config, system)
+		}
+
+		result := manifestFinder.Paths()
+		assert.Equal(result, test.result)
+	}
+}
+
+func TestList(t *testing.T) {
+	assert := assert.New(t)
+	var err error
+
+	wd, _ := os.Getwd()
+
+	logger := &MemLogger{}
+	config := &MemConfig{}
+	system := NewMemSystem()
+
+	system.Setenv("HLN_PATH", "/path/one")
+	manifestFinder, err := NewManifestFinder(path.Join(wd, "testdata", "holen"), config, logger, system)
+	assert.Nil(err)
+
+	err = manifestFinder.List()
+	assert.Nil(err)
+
+	assert.Equal(system.StdoutMessages, []string{"jq\n"})
 }
