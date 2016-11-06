@@ -249,3 +249,23 @@ func TestPaths(t *testing.T) {
 		assert.Equal(result, test.result)
 	}
 }
+
+func TestList(t *testing.T) {
+	assert := assert.New(t)
+	var err error
+
+	wd, _ := os.Getwd()
+
+	logger := &MemLogger{}
+	config := &MemConfig{}
+	system := NewMemSystem()
+
+	system.Setenv("HLN_PATH", "/path/one")
+	manifestFinder, err := NewManifestFinder(path.Join(wd, "testdata", "holen"), config, logger, system)
+	assert.Nil(err)
+
+	err = manifestFinder.List()
+	assert.Nil(err)
+
+	assert.Equal(system.StdoutMessages, []string{"jq\n"})
+}
