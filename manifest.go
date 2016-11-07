@@ -148,9 +148,14 @@ func (dmf DefaultManifestFinder) Link(manifestPath, holenPath, binPath string) e
 
 	dmf.Debugf("linking from utilities found in %s to %s in %s", manifestPath, holenPath, binPath)
 
-	// TODO: keep track of utilities that have been linked, so that manifest
-	// files later in the paths won't override them
+	seenUtilities := make(map[string]bool)
 	err := dmf.eachManifestPath(manifestPath, func(name, fileName string) error {
+		_, ok := seenUtilities[name]
+		if ok {
+			dmf.Debugf(" seen %s already, skipping", name)
+			return nil
+		}
+		seenUtilities[name] = true
 		dmf.Debugf(" linking %s", name)
 
 		fullBinPath := filepath.Join(binPath, name)
@@ -162,22 +167,27 @@ func (dmf DefaultManifestFinder) Link(manifestPath, holenPath, binPath string) e
 		}
 		dmf.Debugf("  relative path %s", relativePath)
 
-		// TODO: also symlink all versions found in manifest file
-		err = os.Symlink(relativePath, fullBinPath)
+		// load up the manifest
+		manifest, err := LoadManifest(ParseName(name), filepath.Join(manifestPath, fileName), dmf.ConfigGetter, dmf.Logger, dmf.System)
 		if err != nil {
-			if linkerr, ok := err.(*os.LinkError); ok {
-				if errno, ok := linkerr.Err.(syscall.Errno); ok {
-					if errno == syscall.EEXIST {
-						// TODO: check if file is a symlink and if it points to
-						// the correct place.  if not the correct holen, fix it.
-						return nil
-					}
-				}
-			}
 			return err
 		}
 
-		return nil
+		strategies, err := manifest.LoadAllStrategies(ParseName(name))
+		if err != nil {
+			return err
+		}
+
+		// link all found versions
+		for _, strategy := range strategies {
+			err = dmf.linkToHolen(relativePath, fmt.Sprintf("%s--%s", fullBinPath, strategy.Version()))
+			if err != nil {
+				return err
+			}
+		}
+
+		// link utility without version number
+		return dmf.linkToHolen(relativePath, fullBinPath)
 	})
 
 	if err != nil {
@@ -187,6 +197,25 @@ func (dmf DefaultManifestFinder) Link(manifestPath, holenPath, binPath string) e
 	return nil
 }
 
+func (dmf DefaultManifestFinder) linkToHolen(relativePath, fullBinPath string) error {
+	err := os.Symlink(relativePath, fullBinPath)
+	if err != nil {
+		if linkerr, ok := err.(*os.LinkError); ok {
+			if errno, ok := linkerr.Err.(syscall.Errno); ok {
+				if errno == syscall.EEXIST {
+					// TODO: check if file is a symlink and if it points to
+					// the correct place.  if not the correct holen, fix it.
+					return nil
+				}
+			}
+		}
+		return err
+	}
+
+	return nil
+}
+
+// TODO: see if this can be made a method attached to ManifestFinder
 func LoadManifest(utility NameVer, manifestPath string, conf ConfigGetter, logger Logger, system System) (*Manifest, error) {
 	md := ManifestData{}
 

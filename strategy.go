@@ -63,6 +63,7 @@ func (sc *StrategyCommon) CommonTemplateValues(version string, osArchData map[st
 type Strategy interface {
 	Run([]string) error
 	Inspect() error
+	Version() string
 }
 
 type DockerData struct {
@@ -136,6 +137,10 @@ func (ds DockerStrategy) Run(extraArgs []string) error {
 	}
 
 	return nil
+}
+
+func (ds DockerStrategy) Version() string {
+	return ds.Data.Version
 }
 
 func (ds DockerStrategy) GenerateArgs(image string, extraArgs []string) []string {
@@ -386,4 +391,8 @@ func (bs BinaryStrategy) ChecksumBinary(binaryPath string) error {
 	}
 
 	return nil
+}
+
+func (bs BinaryStrategy) Version() string {
+	return bs.Data.Version
 }
