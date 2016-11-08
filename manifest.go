@@ -145,6 +145,7 @@ func (dmf DefaultManifestFinder) Link(manifestPath, holenPath, binPath string) e
 	if len(holenPath) == 0 {
 		holenPath = dmf.SelfPath
 	}
+	holenPath, _ = filepath.Abs(holenPath)
 
 	dmf.Debugf("linking from utilities found in %s to %s in %s", manifestPath, holenPath, binPath)
 
@@ -161,11 +162,14 @@ func (dmf DefaultManifestFinder) Link(manifestPath, holenPath, binPath string) e
 		fullBinPath := filepath.Join(binPath, name)
 		dmf.Debugf("  full bin path %s", fullBinPath)
 
-		relativePath, err := filepath.Rel(binPath, holenPath)
+		targetPath, err := filepath.Rel(binPath, holenPath)
+		if strings.HasSuffix(targetPath, holenPath) {
+			targetPath = holenPath
+		}
 		if err != nil {
 			return err
 		}
-		dmf.Debugf("  relative path %s", relativePath)
+		dmf.Debugf("  target path %s", targetPath)
 
 		// load up the manifest
 		manifest, err := LoadManifest(ParseName(name), filepath.Join(manifestPath, fileName), dmf.ConfigGetter, dmf.Logger, dmf.System)
@@ -180,14 +184,14 @@ func (dmf DefaultManifestFinder) Link(manifestPath, holenPath, binPath string) e
 
 		// link all found versions
 		for _, strategy := range strategies {
-			err = dmf.linkToHolen(relativePath, fmt.Sprintf("%s--%s", fullBinPath, strategy.Version()))
+			err = dmf.linkToHolen(targetPath, fmt.Sprintf("%s--%s", fullBinPath, strategy.Version()))
 			if err != nil {
 				return err
 			}
 		}
 
 		// link utility without version number
-		return dmf.linkToHolen(relativePath, fullBinPath)
+		return dmf.linkToHolen(targetPath, fullBinPath)
 	})
 
 	if err != nil {
@@ -197,8 +201,8 @@ func (dmf DefaultManifestFinder) Link(manifestPath, holenPath, binPath string) e
 	return nil
 }
 
-func (dmf DefaultManifestFinder) linkToHolen(relativePath, fullBinPath string) error {
-	err := os.Symlink(relativePath, fullBinPath)
+func (dmf DefaultManifestFinder) linkToHolen(targetPath, fullBinPath string) error {
+	err := os.Symlink(targetPath, fullBinPath)
 	if err != nil {
 		if linkerr, ok := err.(*os.LinkError); ok {
 			if errno, ok := linkerr.Err.(syscall.Errno); ok {
