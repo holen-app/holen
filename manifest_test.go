@@ -20,7 +20,7 @@ func TestRun(t *testing.T) {
 	config := &MemConfig{}
 	system := NewMemSystem()
 	config.Set("strategy.priority", "binary,docker")
-	manifestFinder, err := NewManifestFinder(path.Join(wd, "testdata", "manifests"), config, logger, system)
+	manifestFinder, err := NewManifestFinder(path.Join(wd, "testdata", "single", "holen"), config, logger, system)
 	assert.Nil(err)
 	assert.NotNil(manifestFinder)
 
@@ -56,7 +56,7 @@ func TestLoadAllStrategies(t *testing.T) {
 	config := &MemConfig{}
 	system := NewMemSystem()
 
-	manifest, err := LoadManifest(ParseName("jq"), "testdata/manifests/jq.yaml", config, logger, system)
+	manifest, err := LoadManifest(ParseName("jq"), "testdata/single/manifests/jq.yaml", config, logger, system)
 	assert.Nil(err)
 
 	allStrategies, err := manifest.LoadAllStrategies(ParseName("jq"))
@@ -187,7 +187,7 @@ func TestStrategyOrder(t *testing.T) {
 		config := &MemConfig{}
 		system := NewMemSystem()
 
-		manifest, err := LoadManifest(ParseName(test.utility), "testdata/manifests/jq.yaml", config, logger, system)
+		manifest, err := LoadManifest(ParseName(test.utility), "testdata/single/manifests/jq.yaml", config, logger, system)
 		assert.Nil(err)
 
 		test.adjustment(config)
@@ -199,7 +199,7 @@ func TestPaths(t *testing.T) {
 	assert := assert.New(t)
 
 	wd, _ := os.Getwd()
-	localDir := path.Join(wd, "testdata", "manifests")
+	localDir := path.Join(wd, "testdata", "single", "manifests")
 
 	var pathsTests = []struct {
 		adjustment func(*MemConfig, *MemSystem)
@@ -237,7 +237,7 @@ func TestPaths(t *testing.T) {
 		config := &MemConfig{}
 		system := NewMemSystem()
 
-		manifestFinder, err := NewManifestFinder(path.Join(wd, "testdata", "holen"), config, logger, system)
+		manifestFinder, err := NewManifestFinder(path.Join(wd, "testdata", "single", "holen"), config, logger, system)
 		assert.Nil(err)
 
 		if test.adjustment != nil {
@@ -260,7 +260,7 @@ func TestList(t *testing.T) {
 	system := NewMemSystem()
 
 	system.Setenv("HLN_PATH", "/path/one")
-	manifestFinder, err := NewManifestFinder(path.Join(wd, "testdata", "holen"), config, logger, system)
+	manifestFinder, err := NewManifestFinder(path.Join(wd, "testdata", "single", "holen"), config, logger, system)
 	assert.Nil(err)
 
 	err = manifestFinder.List()
