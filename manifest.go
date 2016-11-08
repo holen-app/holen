@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"syscall"
 
 	"github.com/kr/pretty"
 	"github.com/pkg/errors"
@@ -202,17 +201,24 @@ func (dmf DefaultManifestFinder) Link(manifestPath, holenPath, binPath string) e
 }
 
 func (dmf DefaultManifestFinder) linkToHolen(targetPath, fullBinPath string) error {
-	err := os.Symlink(targetPath, fullBinPath)
-	if err != nil {
-		if linkerr, ok := err.(*os.LinkError); ok {
-			if errno, ok := linkerr.Err.(syscall.Errno); ok {
-				if errno == syscall.EEXIST {
-					// TODO: check if file is a symlink and if it points to
-					// the correct place.  if not the correct holen, fix it.
-					return nil
-				}
-			}
+
+	// if target exists and points to something with 'holen' at the end, remove it
+	fileStat, err := os.Lstat(fullBinPath)
+	if err == nil && fileStat.Mode()&os.ModeSymlink != 0 {
+		target, err := os.Readlink(fullBinPath)
+		if err != nil {
+			return err
 		}
+		if path.Base(target) == "holen" {
+			os.Remove(fullBinPath)
+		} else {
+			return fmt.Errorf("symlink %s already exists and points at non-holen target", fullBinPath)
+		}
+	}
+
+	// symlink to holen
+	err = os.Symlink(targetPath, fullBinPath)
+	if err != nil {
 		return err
 	}
 
