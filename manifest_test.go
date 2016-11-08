@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path"
 	"testing"
@@ -267,4 +268,38 @@ func TestList(t *testing.T) {
 	assert.Nil(err)
 
 	assert.Equal(system.StdoutMessages, []string{"jq\n"})
+}
+
+func TestLink(t *testing.T) {
+	assert := assert.New(t)
+	// var err error
+
+	wd, _ := os.Getwd()
+	base := path.Join(wd, "testdata", "link")
+
+	tempdir, _ := ioutil.TempDir(base, "bin")
+	defer os.RemoveAll(tempdir)
+
+	logger := &MemLogger{}
+	config := &MemConfig{}
+	system := NewMemSystem()
+
+	manifestFinder, err := NewManifestFinder(path.Join(base, "holen"), config, logger, system)
+	assert.Nil(err)
+
+	manifestFinder.Link(path.Join(base, "manifests"), "", tempdir)
+
+	files, err := ioutil.ReadDir(tempdir)
+	assert.Nil(err)
+
+	fileNames := make([]string, len(files))
+	for i, info := range files {
+		fileNames[i] = info.Name()
+
+		target, err := os.Readlink(path.Join(tempdir, info.Name()))
+		assert.Nil(err)
+		assert.Equal(target, "../holen")
+	}
+
+	assert.Equal(fileNames, []string{"util1", "util1--1.4", "util1--1.5", "util1--1.6", "util2", "util2--2.0"})
 }
