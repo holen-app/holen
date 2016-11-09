@@ -287,7 +287,7 @@ func TestLink(t *testing.T) {
 	manifestFinder, err := NewManifestFinder(path.Join(base, "holen"), config, logger, system)
 	assert.Nil(err)
 
-	manifestFinder.Link(path.Join(base, "manifests"), "", tempdir)
+	manifestFinder.LinkSingle(path.Join(base, "manifests"), "", tempdir)
 
 	files, err := ioutil.ReadDir(tempdir)
 	assert.Nil(err)

@@ -33,14 +33,9 @@ func runLink(linkCommand LinkCommand, conf ConfigGetter, logger Logger, system S
 	}
 
 	if linkCommand.All {
-		for _, manifestPath := range manifestFinder.Paths() {
-			err = manifestFinder.Link(manifestPath, linkCommand.HolenPath, linkCommand.BinPath)
-			if err != nil {
-				return err
-			}
-		}
+		return manifestFinder.LinkAll(linkCommand.HolenPath, linkCommand.BinPath)
 	} else if len(linkCommand.ManifestPath) > 0 {
-		return manifestFinder.Link(linkCommand.ManifestPath, linkCommand.HolenPath, linkCommand.BinPath)
+		return manifestFinder.LinkSingle(linkCommand.ManifestPath, linkCommand.HolenPath, linkCommand.BinPath)
 	} else {
 		return fmt.Errorf("either --all or --manifest-path argument is required")
 	}

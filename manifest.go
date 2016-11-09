@@ -17,7 +17,8 @@ import (
 type ManifestFinder interface {
 	Find(NameVer) (*Manifest, error)
 	List() error
-	Link(string, string, string) error
+	LinkAll(string, string) error
+	LinkSingle(string, string, string) error
 }
 
 type DefaultManifestFinder struct {
@@ -134,67 +135,78 @@ func (dmf DefaultManifestFinder) eachManifestPath(manifestPath string, callback 
 	return nil
 }
 
-func (dmf DefaultManifestFinder) Link(manifestPath, holenPath, binPath string) error {
+func (dmf DefaultManifestFinder) LinkAll(holenPath, binPath string) error {
+	return dmf.linkPaths(dmf.Paths(), holenPath, binPath)
+}
 
-	binPath, _ = filepath.Abs(binPath)
-	manifestPath, _ = filepath.Abs(manifestPath)
+func (dmf DefaultManifestFinder) LinkSingle(manifestPath, holenPath, binPath string) error {
+	return dmf.linkPaths([]string{manifestPath}, holenPath, binPath)
+}
+
+func (dmf DefaultManifestFinder) linkPaths(paths []string, holenPath, binPath string) error {
 
 	// TODO: should we create binPath if non-exist?
+	binPath, _ = filepath.Abs(binPath)
 
 	if len(holenPath) == 0 {
 		holenPath = dmf.SelfPath
 	}
 	holenPath, _ = filepath.Abs(holenPath)
 
-	dmf.Debugf("linking from utilities found in %s to %s in %s", manifestPath, holenPath, binPath)
-
 	seenUtilities := make(map[string]bool)
-	err := dmf.eachManifestPath(manifestPath, func(name, fileName string) error {
-		_, ok := seenUtilities[name]
-		if ok {
-			dmf.Debugf(" seen %s already, skipping", name)
-			return nil
-		}
-		seenUtilities[name] = true
-		dmf.Debugf(" linking %s", name)
 
-		fullBinPath := filepath.Join(binPath, name)
-		dmf.Debugf("  full bin path %s", fullBinPath)
+	for _, manifestPath := range paths {
+		manifestPath, _ = filepath.Abs(manifestPath)
 
-		targetPath, err := filepath.Rel(binPath, holenPath)
-		if strings.HasSuffix(targetPath, holenPath) {
-			targetPath = holenPath
-		}
-		if err != nil {
-			return err
-		}
-		dmf.Debugf("  target path %s", targetPath)
+		dmf.Debugf("linking from utilities found in %s to %s in %s", manifestPath, holenPath, binPath)
 
-		// load up the manifest
-		manifest, err := LoadManifest(ParseName(name), filepath.Join(manifestPath, fileName), dmf.ConfigGetter, dmf.Logger, dmf.System)
-		if err != nil {
-			return err
-		}
+		err := dmf.eachManifestPath(manifestPath, func(name, fileName string) error {
+			_, ok := seenUtilities[name]
+			if ok {
+				dmf.Debugf(" seen %s already, skipping", name)
+				return nil
+			}
+			seenUtilities[name] = true
+			dmf.Debugf(" linking %s", name)
 
-		strategies, err := manifest.LoadAllStrategies(ParseName(name))
-		if err != nil {
-			return err
-		}
+			fullBinPath := filepath.Join(binPath, name)
+			dmf.Debugf("  full bin path %s", fullBinPath)
 
-		// link all found versions
-		for _, strategy := range strategies {
-			err = dmf.linkToHolen(targetPath, fmt.Sprintf("%s--%s", fullBinPath, strategy.Version()))
+			targetPath, err := filepath.Rel(binPath, holenPath)
+			if strings.HasSuffix(targetPath, holenPath) {
+				targetPath = holenPath
+			}
 			if err != nil {
 				return err
 			}
+			dmf.Debugf("  target path %s", targetPath)
+
+			// load up the manifest
+			manifest, err := LoadManifest(ParseName(name), filepath.Join(manifestPath, fileName), dmf.ConfigGetter, dmf.Logger, dmf.System)
+			if err != nil {
+				return err
+			}
+
+			strategies, err := manifest.LoadAllStrategies(ParseName(name))
+			if err != nil {
+				return err
+			}
+
+			// link all found versions
+			for _, strategy := range strategies {
+				err = dmf.linkToHolen(targetPath, fmt.Sprintf("%s--%s", fullBinPath, strategy.Version()))
+				if err != nil {
+					return err
+				}
+			}
+
+			// link utility without version number
+			return dmf.linkToHolen(targetPath, fullBinPath)
+		})
+
+		if err != nil {
+			return err
 		}
-
-		// link utility without version number
-		return dmf.linkToHolen(targetPath, fullBinPath)
-	})
-
-	if err != nil {
-		return err
 	}
 
 	return nil
