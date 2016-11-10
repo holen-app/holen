@@ -19,6 +19,7 @@ type ManifestFinder interface {
 	List() error
 	LinkAll(string, string) error
 	LinkSingle(string, string, string) error
+	LinkMultiple([]string, string, string) error
 }
 
 type DefaultManifestFinder struct {
@@ -137,6 +138,10 @@ func (dmf DefaultManifestFinder) eachManifestPath(manifestPath string, callback 
 
 func (dmf DefaultManifestFinder) LinkAll(holenPath, binPath string) error {
 	return dmf.linkPaths(dmf.Paths(), holenPath, binPath)
+}
+
+func (dmf DefaultManifestFinder) LinkMultiple(paths []string, holenPath, binPath string) error {
+	return dmf.linkPaths(paths, holenPath, binPath)
 }
 
 func (dmf DefaultManifestFinder) LinkSingle(manifestPath, holenPath, binPath string) error {
