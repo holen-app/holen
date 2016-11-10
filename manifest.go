@@ -173,12 +173,14 @@ func (dmf DefaultManifestFinder) linkPaths(paths []string, holenPath, binPath st
 			dmf.Debugf("  full bin path %s", fullBinPath)
 
 			targetPath, err := filepath.Rel(binPath, holenPath)
-			if strings.HasSuffix(targetPath, holenPath) {
-				targetPath = holenPath
-			}
 			if err != nil {
 				return err
 			}
+
+			if strings.HasSuffix(targetPath, holenPath) {
+				targetPath = holenPath
+			}
+
 			dmf.Debugf("  target path %s", targetPath)
 
 			// load up the manifest
