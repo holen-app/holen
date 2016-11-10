@@ -12,9 +12,9 @@ import (
 
 // GlobalOptions are options that are used when holen is run directly.
 type GlobalOptions struct {
-	Quiet   func(string) `env:"HLN_QUIET" short:"q" long:"quiet" description:"Show as little information as possible."`
-	Verbose func(string) `env:"HLN_VERBOSE" short:"v" long:"verbose" description:"Show verbose debug information."`
-	LogJSON func(string) `env:"HLN_LOG_JSON" short:"j" long:"log-json" description:"Log in JSON format."`
+	Quiet   func() `short:"q" long:"quiet" description:"Show as little information as possible."`
+	Verbose func() `short:"v" long:"verbose" description:"Show verbose debug information."`
+	LogJSON func() `short:"j" long:"log-json" description:"Log in JSON format."`
 }
 
 // InlineOptions are options that are used when holen is run indirectly via a symlink.
@@ -50,13 +50,13 @@ func main() {
 	if basename == "holen" || basename == "hln" || strings.HasPrefix(basename, "holen") {
 
 		// options to change log level
-		globalOptions.Quiet = func(v string) {
+		globalOptions.Quiet = func() {
 			logrus.SetLevel(logrus.WarnLevel)
 		}
-		globalOptions.Verbose = func(v string) {
+		globalOptions.Verbose = func() {
 			logrus.SetLevel(logrus.DebugLevel)
 		}
-		globalOptions.LogJSON = func(v string) {
+		globalOptions.LogJSON = func() {
 			logrus.SetFormatter(&logrus.JSONFormatter{})
 		}
 

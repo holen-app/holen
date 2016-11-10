@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -16,6 +17,9 @@ import (
 type ManifestFinder interface {
 	Find(NameVer) (*Manifest, error)
 	List() error
+	LinkAll(string, string) error
+	LinkSingle(string, string, string) error
+	LinkMultiple([]string, string, string) error
 }
 
 type DefaultManifestFinder struct {
@@ -35,10 +39,9 @@ func NewManifestFinder(selfPath string, conf ConfigGetter, logger Logger, system
 }
 
 func (dmf DefaultManifestFinder) Find(utility NameVer) (*Manifest, error) {
-	allPaths := dmf.Paths()
 
 	var manifestPath string
-	for _, p := range strings.Split(allPaths, ":") {
+	for _, p := range dmf.Paths() {
 
 		tryPath := path.Join(p, fmt.Sprintf("%s.yaml", utility.Name))
 		dmf.Debugf("trying: %s", tryPath)
@@ -56,54 +59,39 @@ func (dmf DefaultManifestFinder) Find(utility NameVer) (*Manifest, error) {
 	return LoadManifest(utility, manifestPath, dmf.ConfigGetter, dmf.Logger, dmf.System)
 }
 
-func (dmf DefaultManifestFinder) Paths() string {
+func (dmf DefaultManifestFinder) Paths() []string {
 
 	var paths []string
 
 	holenPath := dmf.Getenv("HLN_PATH")
 	if len(holenPath) > 0 {
-		paths = append(paths, holenPath)
+		paths = append(paths, strings.Split(holenPath, ":")...)
 	}
 
 	configHolenPath, err := dmf.Get("manifest.path")
 	if err == nil && len(configHolenPath) > 0 {
-		paths = append(paths, configHolenPath)
+		paths = append(paths, strings.Split(configHolenPath, ":")...)
 	}
 
 	holenPathPost := dmf.Getenv("HLN_PATH_POST")
 	if len(holenPathPost) > 0 {
-		paths = append(paths, holenPathPost)
+		paths = append(paths, strings.Split(holenPathPost, ":")...)
 	}
 
 	paths = append(paths, path.Join(path.Dir(dmf.SelfPath), "manifests"))
 
-	allPaths := strings.Join(paths, ":")
+	dmf.Debugf("all paths: %s", strings.Join(paths, ":"))
 
-	dmf.Debugf("all paths: %s", allPaths)
-
-	return allPaths
+	return paths
 }
 
 func (dmf DefaultManifestFinder) List() error {
-	allPaths := dmf.Paths()
-
 	utilityInfo := make(map[string]int)
-	for _, p := range strings.Split(allPaths, ":") {
-		if _, err := os.Stat(p); os.IsNotExist(err) {
-			continue
-		}
-
-		files, err := ioutil.ReadDir(p)
-		if err != nil {
-			return err
-		}
-
-		for _, file := range files {
-			if strings.HasSuffix(file.Name(), ".yaml") {
-				name := strings.TrimSuffix(file.Name(), ".yaml")
-				utilityInfo[name]++
-			}
-		}
+	for _, p := range dmf.Paths() {
+		dmf.eachManifestPath(p, func(name, fileName string) error {
+			utilityInfo[name]++
+			return nil
+		})
 	}
 
 	utilityNames := make([]string, len(utilityInfo))
@@ -125,6 +113,138 @@ func (dmf DefaultManifestFinder) List() error {
 	return nil
 }
 
+func (dmf DefaultManifestFinder) eachManifestPath(manifestPath string, callback func(name, fileName string) error) error {
+	if _, err := os.Stat(manifestPath); os.IsNotExist(err) {
+		return nil
+	}
+
+	files, err := ioutil.ReadDir(manifestPath)
+	if err != nil {
+		return err
+	}
+
+	for _, file := range files {
+		if strings.HasSuffix(file.Name(), ".yaml") {
+			name := strings.TrimSuffix(file.Name(), ".yaml")
+			err := callback(name, file.Name())
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func (dmf DefaultManifestFinder) LinkAll(holenPath, binPath string) error {
+	return dmf.linkPaths(dmf.Paths(), holenPath, binPath)
+}
+
+func (dmf DefaultManifestFinder) LinkMultiple(paths []string, holenPath, binPath string) error {
+	return dmf.linkPaths(paths, holenPath, binPath)
+}
+
+func (dmf DefaultManifestFinder) LinkSingle(manifestPath, holenPath, binPath string) error {
+	return dmf.linkPaths([]string{manifestPath}, holenPath, binPath)
+}
+
+func (dmf DefaultManifestFinder) linkPaths(paths []string, holenPath, binPath string) error {
+
+	// TODO: should we create binPath if non-exist?
+	binPath, _ = filepath.Abs(binPath)
+
+	if len(holenPath) == 0 {
+		holenPath = dmf.SelfPath
+	}
+	holenPath, _ = filepath.Abs(holenPath)
+
+	seenUtilities := make(map[string]bool)
+
+	for _, manifestPath := range paths {
+		manifestPath, _ = filepath.Abs(manifestPath)
+
+		dmf.Debugf("linking from utilities found in %s to %s in %s", manifestPath, holenPath, binPath)
+
+		err := dmf.eachManifestPath(manifestPath, func(name, fileName string) error {
+			_, ok := seenUtilities[name]
+			if ok {
+				dmf.Debugf(" seen %s already, skipping", name)
+				return nil
+			}
+			seenUtilities[name] = true
+			dmf.Debugf(" linking %s", name)
+
+			fullBinPath := filepath.Join(binPath, name)
+			dmf.Debugf("  full bin path %s", fullBinPath)
+
+			targetPath, err := filepath.Rel(binPath, holenPath)
+			if err != nil {
+				return err
+			}
+
+			if strings.HasSuffix(targetPath, holenPath) {
+				targetPath = holenPath
+			}
+
+			dmf.Debugf("  target path %s", targetPath)
+
+			// load up the manifest
+			manifest, err := LoadManifest(ParseName(name), filepath.Join(manifestPath, fileName), dmf.ConfigGetter, dmf.Logger, dmf.System)
+			if err != nil {
+				return err
+			}
+
+			strategies, err := manifest.LoadAllStrategies(ParseName(name))
+			if err != nil {
+				return err
+			}
+
+			// link all found versions
+			for _, strategy := range strategies {
+				err = dmf.linkToHolen(targetPath, fmt.Sprintf("%s--%s", fullBinPath, strategy.Version()))
+				if err != nil {
+					return err
+				}
+			}
+
+			// link utility without version number
+			return dmf.linkToHolen(targetPath, fullBinPath)
+		})
+
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (dmf DefaultManifestFinder) linkToHolen(targetPath, fullBinPath string) error {
+
+	// if target exists and points to something with 'holen' at the end, remove it
+	fileStat, err := os.Lstat(fullBinPath)
+	if err == nil && fileStat.Mode()&os.ModeSymlink != 0 {
+		target, err := os.Readlink(fullBinPath)
+		if err != nil {
+			return err
+		}
+		if path.Base(target) == "holen" {
+			os.Remove(fullBinPath)
+		} else {
+			return fmt.Errorf("symlink %s already exists and points at non-holen target", fullBinPath)
+		}
+	}
+
+	// symlink to holen
+	err = os.Symlink(targetPath, fullBinPath)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// TODO: see if this can be made a method attached to ManifestFinder
 func LoadManifest(utility NameVer, manifestPath string, conf ConfigGetter, logger Logger, system System) (*Manifest, error) {
 	md := ManifestData{}
 

@@ -1,0 +1,13 @@
+---
+desc: Test utility 1
+strategies:
+    docker:
+        image: util1:{{.Version}}
+        versions:
+          - version: '1.6'
+    binary:
+        base_url: https://github.com/testutil1/file
+        versions:
+          - version: '1.5'
+          - version: '1.4'
+...
