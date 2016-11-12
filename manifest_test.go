@@ -64,7 +64,7 @@ func TestLoadAllStrategies(t *testing.T) {
 	allStrategies, err := manifest.LoadAllStrategies(ParseName("jq"))
 	assert.Nil(err)
 
-	assert.Len(allStrategies, 3)
+	assert.Len(allStrategies, 4)
 	assert.NotEqual(allStrategies[1].(BinaryStrategy).Data.OSArchData, allStrategies[2].(BinaryStrategy).Data.OSArchData)
 
 	assert.Equal(allStrategies[1].(BinaryStrategy).Data.OSArchData,

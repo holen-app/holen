@@ -308,3 +308,60 @@ func TestBinaryInspect(t *testing.T) {
 	assert.Contains(completeOutput, "final url: https://github.com/testbinary/bin/releases/download/bin-2.1/jq-linux_amd64")
 	assert.Contains(completeOutput, "checksum with md5: d41d8cd98f00b204e9800998ecf8427e")
 }
+
+func newCmdioStrategy() (*TestUtils, *CmdioStrategy) {
+	tu := &TestUtils{
+		MemSystem:     NewMemSystem(),
+		MemLogger:     &MemLogger{},
+		MemConfig:     &MemConfig{},
+		MemDownloader: &MemDownloader{},
+		MemRunner:     &MemRunner{},
+	}
+	return tu, &CmdioStrategy{
+		StrategyCommon: &StrategyCommon{
+			System:       tu.MemSystem,
+			Logger:       tu.MemLogger,
+			ConfigGetter: tu.MemConfig,
+			Downloader:   tu.MemDownloader,
+			Runner:       tu.MemRunner,
+		},
+		Data: CmdioData{
+			Name:       "testbinary",
+			Desc:       "Test Binary Program",
+			Version:    "2.1",
+			Command:    "testbinary--{{.Version}}",
+			OSArchData: map[string]map[string]string{},
+		},
+	}
+}
+
+func TestCmdioSimple(t *testing.T) {
+
+	assert := assert.New(t)
+
+	tu, tc := newCmdioStrategy()
+	err := tc.Run([]string{"first", "second"})
+	assert.Nil(err)
+
+	assert.Equal(tu.MemRunner.History[0], "ssh alpha.cmd.io testbinary--2.1 first second")
+}
+
+func TestCmdioInspect(t *testing.T) {
+	assert := assert.New(t)
+
+	tu, tc := newCmdioStrategy()
+	tc.Inspect()
+	completeOutput := strings.Join(tu.MemSystem.StdoutMessages, "")
+
+	assert.Contains(completeOutput, "final command: testbinary--2.1")
+}
+
+func TestCmdioCommandFailed(t *testing.T) {
+	assert := assert.New(t)
+
+	tu, tc := newCmdioStrategy()
+	tu.MemRunner.FailCommand("ssh alpha.cmd.io testbinary--2.1 first second", fmt.Errorf("bad output"))
+	err := tc.Run([]string{"first", "second"})
+	assert.NotNil(err)
+	assert.Contains(err.Error(), "bad output")
+}
