@@ -291,7 +291,12 @@ type Manifest struct {
 }
 
 func (m *Manifest) StrategyOrder(utility NameVer) []string {
-	// default
+	// by default, higher priority is given for those that have least impact on
+	// system and can be shared:
+	//   1. cmdio - over an ssh connection, zero local footprint
+	//   2. docker - easy distribution, shared between multiple users
+	//   3. binary - static binary download
+	// Temporarily move cmdio to the last until it's GA
 	allPriorities := []string{"docker", "binary", "cmdio"}
 
 	priorities := []string{}
@@ -489,6 +494,23 @@ func (m *Manifest) loadStrategy(strategyType string, strategyData map[interface{
 				Version:    strategyData["version"].(string),
 				BaseURL:    baseURL.(string),
 				UnpackPath: unpackPath.(string),
+				OSArchData: osArchData,
+			},
+		}, nil
+	} else if strategyType == "cmdio" {
+		command, commandOk := strategyData["command"]
+
+		if !commandOk {
+			return dummy, errors.New("At least 'command' needed for cmdio strategy to work")
+		}
+
+		return CmdioStrategy{
+			StrategyCommon: common,
+			Data: CmdioData{
+				Name:       m.Data.Name,
+				Desc:       m.Data.Desc,
+				Version:    strategyData["version"].(string),
+				Command:    command.(string),
 				OSArchData: osArchData,
 			},
 		}, nil

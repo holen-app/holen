@@ -1,12 +1,8 @@
 ---
 desc: Test utility 2
 strategies:
-    docker:
-        image: util2:{{.Version}}
-        versions:
-          - version: '2.0'
-    binary:
-        base_url: https://github.com/testutil2/file
+    cmdio:
+        command: name/util2--{{.Version}}
         versions:
           - version: '2.0'
 ...

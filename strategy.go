@@ -396,3 +396,54 @@ func (bs BinaryStrategy) ChecksumBinary(binaryPath string) error {
 func (bs BinaryStrategy) Version() string {
 	return bs.Data.Version
 }
+
+type CmdioData struct {
+	Name       string
+	Desc       string
+	Version    string                       `yaml:"version"`
+	Command    string                       `yaml:"command"`
+	OSArchData map[string]map[string]string `yaml:"os_arch_map"`
+}
+
+type CmdioStrategy struct {
+	*StrategyCommon
+	Data CmdioData
+}
+
+func (cs CmdioStrategy) Version() string {
+	return cs.Data.Version
+}
+
+func (cs CmdioStrategy) TemplateValues(values map[string]string) (map[string]string, error) {
+	return cs.CommonTemplateValues(cs.Data.Version, cs.Data.OSArchData, cs.System, values)
+}
+
+func (cs CmdioStrategy) Inspect() error {
+	templated, err := cs.TemplateValues(map[string]string{
+		"Command": cs.Data.Command,
+	})
+	if err != nil {
+		return errors.Wrap(err, fmt.Sprintf("error in templating cmdio version %s", cs.Data.Version))
+	}
+
+	cs.Stdoutf("Cmd.io Strategy (version: %s):\n", cs.Data.Version)
+	cs.Stdoutf("  final command: %s\n", templated["Command"])
+
+	return nil
+}
+
+func (cs CmdioStrategy) Run(args []string) error {
+	templated, err := cs.TemplateValues(map[string]string{
+		"Command": cs.Data.Command,
+	})
+	if err != nil {
+		return err
+	}
+
+	err = cs.RunCommand("ssh", append([]string{"alpha.cmd.io", templated["Command"]}, args...))
+	if err != nil {
+		return errors.Wrap(err, "can't run cmdio session")
+	}
+
+	return nil
+}
