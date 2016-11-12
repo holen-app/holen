@@ -296,7 +296,8 @@ func (m *Manifest) StrategyOrder(utility NameVer) []string {
 	//   1. cmdio - over an ssh connection, zero local footprint
 	//   2. docker - easy distribution, shared between multiple users
 	//   3. binary - static binary download
-	allPriorities := []string{"cmdio", "docker", "binary"}
+	// Temporarily move cmdio to the last until it's GA
+	allPriorities := []string{"docker", "binary", "cmdio"}
 
 	priorities := []string{}
 
