@@ -284,6 +284,7 @@ func TestLink(t *testing.T) {
 		links   []string
 		target  string
 		err     error
+		cleanup func()
 	}{
 		// link from one dir
 		{
@@ -294,6 +295,7 @@ func TestLink(t *testing.T) {
 			[]string{"util1", "util1--1.4", "util1--1.5", "util1--1.6", "util2", "util2--2.0"},
 			"../holen",
 			nil,
+			nil,
 		},
 		// pass a different holen path
 		{
@@ -303,6 +305,7 @@ func TestLink(t *testing.T) {
 			},
 			[]string{"util1", "util1--1.4", "util1--1.5", "util1--1.6", "util2", "util2--2.0"},
 			"../../../holen",
+			nil,
 			nil,
 		},
 		// link from two dirs, earlier manifests should mask later ones
@@ -315,6 +318,7 @@ func TestLink(t *testing.T) {
 			[]string{"util1", "util1--3.4", "util1--3.5", "util1--3.6", "util2", "util2--2.0"},
 			"../holen",
 			nil,
+			nil,
 		},
 		// if a symlink to something non-holen exists
 		{
@@ -326,6 +330,7 @@ func TestLink(t *testing.T) {
 			[]string{"util1", "util1--1.4", "util1--1.5", "util1--1.6", "util2", "util2--2.0"},
 			"../holen",
 			fmt.Errorf("already exists"),
+			nil,
 		},
 		// link to something with no common parent dir results in absolute paths
 		{
@@ -339,6 +344,33 @@ func TestLink(t *testing.T) {
 			[]string{"util1", "util1--1.4", "util1--1.5", "util1--1.6", "util2", "util2--2.0"},
 			path.Join(base, "holen"),
 			nil,
+			nil,
+		},
+		// link to dir that's got a symlink in its path
+		{
+			func() string {
+				p1 := path.Join(base, "folder", "other")
+				bin := path.Join(base, "bin")
+				os.MkdirAll(p1, 0755)
+
+				os.Symlink("./folder/other", bin)
+
+				return bin
+			},
+			func(finder ManifestFinder, dir string) error {
+				// TODO: figure out if this and the EvalSymlinks in manifest.go
+				// is necessary or not:
+				// p1 := path.Join(base, "folder", "holen")
+				// os.Symlink("../holen", p1)
+				// return finder.LinkSingle(path.Join(base, "manifests"), p1, dir)
+				return finder.LinkSingle(path.Join(base, "manifests"), "", dir)
+			},
+			[]string{"util1", "util1--1.4", "util1--1.5", "util1--1.6", "util2", "util2--2.0"},
+			"../../holen",
+			nil,
+			func() {
+				defer os.RemoveAll(path.Join(base, "folder"))
+			},
 		},
 	}
 
@@ -348,8 +380,8 @@ func TestLink(t *testing.T) {
 			tempdir = test.tempbin()
 		} else {
 			tempdir, _ = ioutil.TempDir(base, "bin")
-			defer os.RemoveAll(tempdir)
 		}
+		defer os.RemoveAll(tempdir)
 
 		logger := &MemLogger{}
 		config := &MemConfig{}
@@ -378,6 +410,10 @@ func TestLink(t *testing.T) {
 			}
 
 			assert.Equal(fileNames, test.links)
+		}
+
+		if test.cleanup != nil {
+			test.cleanup()
 		}
 	}
 }

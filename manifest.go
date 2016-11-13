@@ -152,11 +152,14 @@ func (dmf DefaultManifestFinder) linkPaths(paths []string, holenPath, binPath st
 
 	// TODO: should we create binPath if non-exist?
 	binPath, _ = filepath.Abs(binPath)
+	binPath, _ = filepath.EvalSymlinks(binPath)
 
 	if len(holenPath) == 0 {
 		holenPath = dmf.SelfPath
 	}
 	holenPath, _ = filepath.Abs(holenPath)
+	// TODO: figure out if this eval is necessary or not:
+	// holenPath, _ = filepath.EvalSymlinks(holenPath)
 
 	seenUtilities := make(map[string]bool)
 
