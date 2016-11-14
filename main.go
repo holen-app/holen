@@ -19,6 +19,7 @@ type GlobalOptions struct {
 
 // InlineOptions are options that are used when holen is run indirectly via a symlink.
 type InlineOptions struct {
+	Version string       `env:"HLN_VERSION" long:"hln-version" description:"Use specified version."`
 	Verbose func(string) `env:"HLN_VERBOSE" long:"hln-verbose" description:"Show verbose debug information."`
 	LogJSON func(string) `env:"HLN_LOG_JSON" long:"hln-log-json" description:"Log in JSON format."`
 }
@@ -48,20 +49,79 @@ func main() {
 	logrus.SetLevel(logrus.InfoLevel)
 
 	if basename == "holen" || basename == "hln" || strings.HasPrefix(basename, "holen") {
+		var utility NameVer
+		var manifestFile string
 
-		// options to change log level
-		globalOptions.Quiet = func() {
-			logrus.SetLevel(logrus.WarnLevel)
-		}
-		globalOptions.Verbose = func() {
-			logrus.SetLevel(logrus.DebugLevel)
-		}
-		globalOptions.LogJSON = func() {
-			logrus.SetFormatter(&logrus.JSONFormatter{})
+		if len(os.Args) >= 2 {
+			firstArg := os.Args[1]
+			fileStat, err := os.Lstat(firstArg)
+			if err == nil && fileStat.Mode()&os.ModeSymlink != 0 {
+				utility = ParseName(path.Base(firstArg))
+
+				var err error
+				manifestFile, err = os.Readlink(firstArg)
+				if err != nil {
+					fmt.Println(err)
+					os.Exit(1)
+				}
+			} else if strings.HasSuffix(firstArg, ".yaml") {
+				name := strings.TrimSuffix(path.Base(firstArg), ".yaml")
+				utility = NameVer{name, ""}
+				manifestFile = firstArg
+			}
 		}
 
-		if _, err := parser.Parse(); err != nil {
-			os.Exit(1)
+		if len(utility.Name) > 0 {
+			// options to change log level
+			inlineOptions.Verbose = func(v string) {
+				logrus.SetLevel(logrus.DebugLevel)
+			}
+			inlineOptions.LogJSON = func(v string) {
+				logrus.SetFormatter(&logrus.JSONFormatter{})
+			}
+
+			args, err := inlineParser.ParseArgs(os.Args[2:])
+
+			if len(inlineOptions.Version) > 0 {
+				utility.Version = inlineOptions.Version
+			}
+
+			system := &DefaultSystem{}
+			conf, err := NewDefaultConfigClient(system)
+			if err != nil {
+				fmt.Println(err)
+				os.Exit(1)
+			}
+
+			manifest, err := LoadManifest(utility, manifestFile, conf, &LogrusLogger{}, system)
+			if err != nil {
+				fmt.Println(err)
+				os.Exit(1)
+			}
+
+			// fmt.Println(os.Args)
+			// fmt.Println(os.Args[2:])
+			// fmt.Println(args)
+			err = manifest.Run(utility, args)
+			if err != nil {
+				fmt.Println(err)
+				os.Exit(1)
+			}
+		} else {
+			// options to change log level
+			globalOptions.Quiet = func() {
+				logrus.SetLevel(logrus.WarnLevel)
+			}
+			globalOptions.Verbose = func() {
+				logrus.SetLevel(logrus.DebugLevel)
+			}
+			globalOptions.LogJSON = func() {
+				logrus.SetFormatter(&logrus.JSONFormatter{})
+			}
+
+			if _, err := parser.Parse(); err != nil {
+				os.Exit(1)
+			}
 		}
 	} else {
 
