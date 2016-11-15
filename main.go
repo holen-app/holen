@@ -52,6 +52,13 @@ func main() {
 		var utility NameVer
 		var manifestFile string
 
+		system := &DefaultSystem{}
+		conf, err := NewDefaultConfigClient(system)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+
 		if len(os.Args) >= 2 {
 			firstArg := os.Args[1]
 			fileStat, err := os.Lstat(firstArg)
@@ -68,6 +75,12 @@ func main() {
 				name := strings.TrimSuffix(path.Base(firstArg), ".yaml")
 				utility = NameVer{name, ""}
 				manifestFile = firstArg
+			} else {
+				_, err := LoadManifest(NameVer{}, firstArg, conf, &LogrusLogger{}, system)
+				if err == nil {
+					utility = ParseName(path.Base(firstArg))
+					manifestFile = firstArg
+				}
 			}
 		}
 
@@ -84,13 +97,6 @@ func main() {
 
 			if len(inlineOptions.Version) > 0 {
 				utility.Version = inlineOptions.Version
-			}
-
-			system := &DefaultSystem{}
-			conf, err := NewDefaultConfigClient(system)
-			if err != nil {
-				fmt.Println(err)
-				os.Exit(1)
 			}
 
 			manifest, err := LoadManifest(utility, manifestFile, conf, &LogrusLogger{}, system)
