@@ -37,12 +37,6 @@ func main() {
 		basename = utilityNameOverride
 	}
 
-	selfPath, err := findSelfPath()
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-
 	logrus.SetFormatter(&logrus.TextFormatter{FullTimestamp: true})
 
 	// configure logging
@@ -144,7 +138,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		err = RunUtility(selfPath, basename, args)
+		err = RunUtility(basename, args)
 		if err != nil {
 			fmt.Printf("Unable to run %s: %s\n", basename, err)
 			os.Exit(1)
@@ -153,14 +147,8 @@ func main() {
 }
 
 // RunUtility will run the specified utility with arguments.
-func RunUtility(selfPath, utility string, args []string) error {
-	system := &DefaultSystem{}
-	conf, err := NewDefaultConfigClient(system)
-	if err != nil {
-		return err
-	}
-
-	manifestFinder, err := NewManifestFinder(selfPath, conf, &LogrusLogger{}, system)
+func RunUtility(utility string, args []string) error {
+	manifestFinder, err := NewManifestFinder0()
 	if err != nil {
 		return err
 	}

@@ -11,19 +11,7 @@ var listCommand ListCommand
 
 // Listing utilities
 func (x *ListCommand) Execute(args []string) error {
-	system := &DefaultSystem{}
-	conf, err := NewDefaultConfigClient(system)
-	if err != nil {
-		return err
-	}
-
-	return runList(listCommand, conf, &LogrusLogger{}, system)
-}
-
-func runList(listCommand ListCommand, conf ConfigGetter, logger Logger, system System) error {
-	selfPath, err := findSelfPath()
-	manifestFinder, err := NewManifestFinder(selfPath, conf, logger, system)
-
+	manifestFinder, err := NewManifestFinder0()
 	if err != nil {
 		return err
 	}
