@@ -10,31 +10,58 @@ import (
 )
 
 type MemConfig struct {
-	Config map[string]string
+	SystemConfig map[string]string
+	UserConfig   map[string]string
 }
 
 func (mc *MemConfig) Get(key string) (string, error) {
-	if val, ok := mc.Config[key]; ok {
+	if val, ok := mc.UserConfig[key]; ok {
+		return val, nil
+	}
+	if val, ok := mc.SystemConfig[key]; ok {
 		return val, nil
 	}
 	return "", nil
 }
 
-func (mc *MemConfig) Unset(key string) error {
-	if mc.Config == nil {
-		mc.Config = make(map[string]string)
+func (mc *MemConfig) Unset(system bool, key string) error {
+	if system {
+		delete(mc.SystemConfig, key)
+	} else {
+		delete(mc.UserConfig, key)
 	}
-	delete(mc.Config, key)
 
 	return nil
 }
 
-func (mc *MemConfig) Set(key, value string) {
-	if mc.Config == nil {
-		mc.Config = make(map[string]string)
+func (mc *MemConfig) Set(system bool, key, value string) error {
+	if system {
+		mc.SystemConfig[key] = value
+	} else {
+		mc.UserConfig[key] = value
 	}
 
-	mc.Config[key] = value
+	return nil
+}
+
+func (mc *MemConfig) GetAll() (map[string]string, error) {
+	combined := make(map[string]string)
+
+	for k, v := range mc.SystemConfig {
+		combined[k] = v
+	}
+	for k, v := range mc.UserConfig {
+		combined[k] = v
+	}
+
+	return combined, nil
+}
+
+func NewMemConfig() *MemConfig {
+	return &MemConfig{
+		make(map[string]string),
+		make(map[string]string),
+	}
 }
 
 type MemLogger struct {

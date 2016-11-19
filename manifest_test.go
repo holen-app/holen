@@ -28,9 +28,9 @@ func TestRun(t *testing.T) {
 
 	wd, _ := os.Getwd()
 	logger := &MemLogger{}
-	config := &MemConfig{}
+	config := NewMemConfig()
 	system := NewMemSystem()
-	config.Set("strategy.priority", "binary,docker")
+	config.Set(false, "strategy.priority", "binary,docker")
 	manifestFinder, err := newTestManifestFinder(path.Join(wd, "testdata", "single", "holen"), config, logger, system)
 	assert.Nil(err)
 	assert.NotNil(manifestFinder)
@@ -64,7 +64,7 @@ func TestLoadAllStrategies(t *testing.T) {
 	assert := assert.New(t)
 
 	logger := &MemLogger{}
-	config := &MemConfig{}
+	config := NewMemConfig()
 	system := NewMemSystem()
 
 	manifest, err := LoadManifest(ParseName("jq"), "testdata/single/manifests/jq.yaml", config, logger, system)
@@ -107,29 +107,29 @@ func TestStrategyOrder(t *testing.T) {
 		{
 			"jq",
 			func(config *MemConfig) {
-				config.Set("strategy.priority", "binary,docker")
-				config.Unset("strategy.priority")
+				config.Set(false, "strategy.priority", "binary,docker")
+				config.Unset(false, "strategy.priority")
 			},
 			[]string{"docker", "binary", "cmdio"},
 		},
 		{
 			"jq",
 			func(config *MemConfig) {
-				config.Set("strategy.priority", "binary,docker")
+				config.Set(false, "strategy.priority", "binary,docker")
 			},
 			[]string{"binary", "docker", "cmdio"},
 		},
 		{
 			"jq",
 			func(config *MemConfig) {
-				config.Set("strategy.priority", "cmdio")
+				config.Set(false, "strategy.priority", "cmdio")
 			},
 			[]string{"cmdio", "docker", "binary"},
 		},
 		{
 			"jq",
 			func(config *MemConfig) {
-				config.Set("strategy.xpriority", "binary")
+				config.Set(false, "strategy.xpriority", "binary")
 			},
 			[]string{"binary"},
 		},
@@ -137,28 +137,28 @@ func TestStrategyOrder(t *testing.T) {
 		{
 			"jq",
 			func(config *MemConfig) {
-				config.Set("strategy.jq.xpriority", "binary")
+				config.Set(false, "strategy.jq.xpriority", "binary")
 			},
 			[]string{"binary"},
 		},
 		{
 			"hugo",
 			func(config *MemConfig) {
-				config.Set("strategy.jq.xpriority", "binary")
+				config.Set(false, "strategy.jq.xpriority", "binary")
 			},
 			[]string{"docker", "binary", "cmdio"},
 		},
 		{
 			"jq",
 			func(config *MemConfig) {
-				config.Set("strategy.jq.priority", "binary")
+				config.Set(false, "strategy.jq.priority", "binary")
 			},
 			[]string{"binary", "docker", "cmdio"},
 		},
 		{
 			"hugo",
 			func(config *MemConfig) {
-				config.Set("strategy.jq.priority", "binary")
+				config.Set(false, "strategy.jq.priority", "binary")
 			},
 			[]string{"docker", "binary", "cmdio"},
 		},
@@ -166,28 +166,28 @@ func TestStrategyOrder(t *testing.T) {
 		{
 			"jq--1.6",
 			func(config *MemConfig) {
-				config.Set("strategy.jq.1.6.xpriority", "binary")
+				config.Set(false, "strategy.jq.1.6.xpriority", "binary")
 			},
 			[]string{"binary"},
 		},
 		{
 			"jq",
 			func(config *MemConfig) {
-				config.Set("strategy.jq.1.6.xpriority", "binary")
+				config.Set(false, "strategy.jq.1.6.xpriority", "binary")
 			},
 			[]string{"docker", "binary", "cmdio"},
 		},
 		{
 			"jq--1.6",
 			func(config *MemConfig) {
-				config.Set("strategy.jq.1.6.priority", "binary")
+				config.Set(false, "strategy.jq.1.6.priority", "binary")
 			},
 			[]string{"binary", "docker", "cmdio"},
 		},
 		{
 			"jq",
 			func(config *MemConfig) {
-				config.Set("strategy.jq.1.6.priority", "binary")
+				config.Set(false, "strategy.jq.1.6.priority", "binary")
 			},
 			[]string{"docker", "binary", "cmdio"},
 		},
@@ -195,7 +195,7 @@ func TestStrategyOrder(t *testing.T) {
 
 	for _, test := range strategyOrderTests {
 		logger := &MemLogger{}
-		config := &MemConfig{}
+		config := NewMemConfig()
 		system := NewMemSystem()
 
 		manifest, err := LoadManifest(ParseName(test.utility), "testdata/single/manifests/jq.yaml", config, logger, system)
@@ -236,7 +236,7 @@ func TestPaths(t *testing.T) {
 			func(config *MemConfig, sys *MemSystem) {
 				sys.Setenv("HLN_PATH", "/path/one")
 				sys.Setenv("HLN_PATH_POST", "/path/two")
-				config.Set("manifest.path", "/path/config")
+				config.Set(false, "manifest.path", "/path/config")
 			},
 			[]string{"/path/one", "/path/config", "/path/two", localDir},
 		},
@@ -245,7 +245,7 @@ func TestPaths(t *testing.T) {
 	for _, test := range pathsTests {
 
 		logger := &MemLogger{}
-		config := &MemConfig{}
+		config := NewMemConfig()
 		system := NewMemSystem()
 
 		manifestFinder, err := newTestManifestFinder(path.Join(wd, "testdata", "single", "holen"), config, logger, system)
@@ -267,7 +267,7 @@ func TestList(t *testing.T) {
 	wd, _ := os.Getwd()
 
 	logger := &MemLogger{}
-	config := &MemConfig{}
+	config := NewMemConfig()
 	system := NewMemSystem()
 
 	system.Setenv("HLN_PATH", "/path/one")
@@ -393,7 +393,7 @@ func TestLink(t *testing.T) {
 		defer os.RemoveAll(tempdir)
 
 		logger := &MemLogger{}
-		config := &MemConfig{}
+		config := NewMemConfig()
 		system := NewMemSystem()
 
 		manifestFinder, err := newTestManifestFinder(path.Join(base, "holen"), config, logger, system)
