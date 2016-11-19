@@ -148,7 +148,7 @@ func main() {
 
 // RunUtility will run the specified utility with arguments.
 func RunUtility(utility string, args []string) error {
-	manifestFinder, err := NewManifestFinder0()
+	manifestFinder, err := NewManifestFinder()
 	if err != nil {
 		return err
 	}

@@ -15,7 +15,7 @@ var linkCommand LinkCommand
 
 // Linking utilities
 func (x *LinkCommand) Execute(args []string) error {
-	manifestFinder, err := NewManifestFinder0()
+	manifestFinder, err := NewManifestFinder()
 	if err != nil {
 		return err
 	}

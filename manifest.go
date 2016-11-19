@@ -29,7 +29,7 @@ type DefaultManifestFinder struct {
 	SelfPath string
 }
 
-func NewManifestFinder0() (*DefaultManifestFinder, error) {
+func NewManifestFinder() (*DefaultManifestFinder, error) {
 	selfPath, err := findSelfPath()
 	if err != nil {
 		return nil, err
@@ -43,15 +43,6 @@ func NewManifestFinder0() (*DefaultManifestFinder, error) {
 
 	return &DefaultManifestFinder{
 		Logger:       &LogrusLogger{},
-		ConfigGetter: conf,
-		System:       system,
-		SelfPath:     selfPath,
-	}, nil
-}
-
-func NewManifestFinder(selfPath string, conf ConfigGetter, logger Logger, system System) (*DefaultManifestFinder, error) {
-	return &DefaultManifestFinder{
-		Logger:       logger,
 		ConfigGetter: conf,
 		System:       system,
 		SelfPath:     selfPath,

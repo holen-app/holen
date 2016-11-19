@@ -11,7 +11,7 @@ var listCommand ListCommand
 
 // Listing utilities
 func (x *ListCommand) Execute(args []string) error {
-	manifestFinder, err := NewManifestFinder0()
+	manifestFinder, err := NewManifestFinder()
 	if err != nil {
 		return err
 	}

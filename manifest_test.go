@@ -11,6 +11,15 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func newTestManifestFinder(selfPath string, conf ConfigGetter, logger Logger, system System) (*DefaultManifestFinder, error) {
+	return &DefaultManifestFinder{
+		Logger:       logger,
+		ConfigGetter: conf,
+		System:       system,
+		SelfPath:     selfPath,
+	}, nil
+}
+
 func TestRun(t *testing.T) {
 
 	assert := assert.New(t)
@@ -22,7 +31,7 @@ func TestRun(t *testing.T) {
 	config := &MemConfig{}
 	system := NewMemSystem()
 	config.Set("strategy.priority", "binary,docker")
-	manifestFinder, err := NewManifestFinder(path.Join(wd, "testdata", "single", "holen"), config, logger, system)
+	manifestFinder, err := newTestManifestFinder(path.Join(wd, "testdata", "single", "holen"), config, logger, system)
 	assert.Nil(err)
 	assert.NotNil(manifestFinder)
 
@@ -239,7 +248,7 @@ func TestPaths(t *testing.T) {
 		config := &MemConfig{}
 		system := NewMemSystem()
 
-		manifestFinder, err := NewManifestFinder(path.Join(wd, "testdata", "single", "holen"), config, logger, system)
+		manifestFinder, err := newTestManifestFinder(path.Join(wd, "testdata", "single", "holen"), config, logger, system)
 		assert.Nil(err)
 
 		if test.adjustment != nil {
@@ -262,7 +271,7 @@ func TestList(t *testing.T) {
 	system := NewMemSystem()
 
 	system.Setenv("HLN_PATH", "/path/one")
-	manifestFinder, err := NewManifestFinder(path.Join(wd, "testdata", "single", "holen"), config, logger, system)
+	manifestFinder, err := newTestManifestFinder(path.Join(wd, "testdata", "single", "holen"), config, logger, system)
 	assert.Nil(err)
 
 	err = manifestFinder.List()
@@ -387,7 +396,7 @@ func TestLink(t *testing.T) {
 		config := &MemConfig{}
 		system := NewMemSystem()
 
-		manifestFinder, err := NewManifestFinder(path.Join(base, "holen"), config, logger, system)
+		manifestFinder, err := newTestManifestFinder(path.Join(base, "holen"), config, logger, system)
 		assert.Nil(err)
 
 		err = test.link(manifestFinder, tempdir)
