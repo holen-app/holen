@@ -111,6 +111,10 @@ func (mr *MemRunner) RunCommand(command string, args []string) error {
 	}
 }
 
+func (mr *MemRunner) ExecCommand(command string, args []string) error {
+	return mr.RunCommand(command, args)
+}
+
 func (mr *MemRunner) FailCheck(fullCommand string) {
 	if mr.FailCheckCmds == nil {
 		mr.FailCheckCmds = make(map[string]bool)
@@ -229,6 +233,23 @@ func (ms *MemSystem) Getenv(key string) string {
 	}
 
 	return ""
+}
+
+// TODO: remove the duplication here and in system.go
+func (ms *MemSystem) DataPath() (string, error) {
+	var holenPath string
+	if xdgDataHome := ms.Getenv("XDG_DATA_HOME"); len(xdgDataHome) > 0 {
+		holenPath = filepath.Join(xdgDataHome, "holen")
+	} else {
+		var home string
+		if home = ms.Getenv("HOME"); len(home) == 0 {
+			return "", fmt.Errorf("$HOME environment variable not found")
+		}
+		holenPath = filepath.Join(home, ".local", "share", "holen")
+	}
+	os.MkdirAll(holenPath, 0755)
+
+	return holenPath, nil
 }
 
 func (ms *MemSystem) Setenv(key, value string) {

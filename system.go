@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
 	"runtime"
 	"syscall"
 
@@ -26,6 +27,7 @@ type System interface {
 	Stdoutf(string, ...interface{})
 	UnpackArchive(string, string) error
 	Getenv(string) string
+	DataPath() (string, error)
 }
 
 type DefaultSystem struct{}
@@ -89,6 +91,22 @@ func (ds DefaultSystem) Getenv(key string) string {
 	return os.Getenv(key)
 }
 
+func (ds DefaultSystem) DataPath() (string, error) {
+	var holenPath string
+	if xdgDataHome := ds.Getenv("XDG_DATA_HOME"); len(xdgDataHome) > 0 {
+		holenPath = filepath.Join(xdgDataHome, "holen")
+	} else {
+		var home string
+		if home = ds.Getenv("HOME"); len(home) == 0 {
+			return "", fmt.Errorf("$HOME environment variable not found")
+		}
+		holenPath = filepath.Join(home, ".local", "share", "holen")
+	}
+	os.MkdirAll(holenPath, 0755)
+
+	return holenPath, nil
+}
+
 type Logger interface {
 	Debugf(string, ...interface{})
 	Infof(string, ...interface{})
@@ -148,6 +166,7 @@ func (dd DefaultDownloader) PullDockerImage(image string) error {
 
 type Runner interface {
 	RunCommand(string, []string) error
+	ExecCommand(string, []string) error
 	CheckCommand(string, []string) bool
 }
 
@@ -162,6 +181,16 @@ func (dr DefaultRunner) CheckCommand(command string, args []string) bool {
 }
 
 func (dr DefaultRunner) RunCommand(command string, args []string) error {
+
+	cmd := exec.Command(command, args...)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	return cmd.Run()
+}
+
+func (dr DefaultRunner) ExecCommand(command string, args []string) error {
 	dr.Debugf("Running command %s with args %v", command, args)
 
 	// adapted from https://gobyexample.com/execing-processes

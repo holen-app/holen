@@ -131,7 +131,7 @@ func (ds DockerStrategy) Run(extraArgs []string) error {
 
 	args := ds.GenerateArgs(image, extraArgs)
 
-	err = ds.RunCommand("docker", args)
+	err = ds.ExecCommand("docker", args)
 	if err != nil {
 		return errors.Wrap(err, "can't run image")
 	}
@@ -193,30 +193,12 @@ func (ds DockerStrategy) Inspect() error {
 	return nil
 }
 
-func (bs BinaryStrategy) localHolenPath() (string, error) {
-	var holenPath string
-	if configDataPath, err := bs.Get("holen.datapath"); err == nil && len(configDataPath) > 0 {
-		holenPath = configDataPath
-	} else if xdgDataHome := bs.Getenv("XDG_DATA_HOME"); len(xdgDataHome) > 0 {
-		holenPath = filepath.Join(xdgDataHome, "holen")
-	} else {
-		var home string
-		if home = bs.Getenv("HOME"); len(home) == 0 {
-			return "", fmt.Errorf("$HOME environment variable not found")
-		}
-		holenPath = filepath.Join(home, ".local", "share", "holen")
-	}
-	os.MkdirAll(holenPath, 0755)
-
-	return holenPath, nil
-}
-
 func (bs BinaryStrategy) DownloadPath() (string, error) {
 	var downloadPath string
 	if configDownloadPath, err := bs.Get("binary.download"); err == nil && len(configDownloadPath) > 0 {
 		downloadPath = configDownloadPath
 	} else {
-		holenPath, err := bs.localHolenPath()
+		holenPath, err := bs.DataPath()
 		if err != nil {
 			return "", errors.Wrap(err, "unable to get holen data path")
 		}
@@ -230,7 +212,7 @@ func (bs BinaryStrategy) DownloadPath() (string, error) {
 func (bs BinaryStrategy) TempPath() (string, error) {
 	var tempPath string
 
-	holenPath, err := bs.localHolenPath()
+	holenPath, err := bs.DataPath()
 	if err != nil {
 		return "", errors.Wrap(err, "unable to get holen data path")
 	}
@@ -331,7 +313,7 @@ func (bs BinaryStrategy) Run(args []string) error {
 
 	// TODO: add option to re-checksum the binary
 
-	err = bs.RunCommand(localPath, args)
+	err = bs.ExecCommand(localPath, args)
 	if err != nil {
 		return errors.Wrap(err, "can't run binary")
 	}
@@ -440,7 +422,7 @@ func (cs CmdioStrategy) Run(args []string) error {
 		return err
 	}
 
-	err = cs.RunCommand("ssh", append([]string{"alpha.cmd.io", templated["Command"]}, args...))
+	err = cs.ExecCommand("ssh", append([]string{"alpha.cmd.io", templated["Command"]}, args...))
 	if err != nil {
 		return errors.Wrap(err, "can't run cmdio session")
 	}
