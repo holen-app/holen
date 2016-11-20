@@ -16,16 +16,16 @@ import (
 
 type ManifestFinder interface {
 	Find(NameVer) (*Manifest, error)
-	List() error
-	LinkAll(string, string) error
-	LinkSingle(string, string, string) error
-	LinkMultiple([]string, string, string) error
+	List(string) error
+	LinkAllUtilities(string, string) error
+	LinkSingleUtility(string, string, string) error
 }
 
 type DefaultManifestFinder struct {
 	Logger
 	ConfigGetter
 	System
+	SourcePather
 	SelfPath string
 }
 
@@ -41,10 +41,16 @@ func NewManifestFinder() (*DefaultManifestFinder, error) {
 		return nil, err
 	}
 
+	sourceManager, err := NewDefaultSourceManager()
+	if err != nil {
+		return nil, err
+	}
+
 	return &DefaultManifestFinder{
 		Logger:       &LogrusLogger{},
 		ConfigGetter: conf,
 		System:       system,
+		SourcePather: sourceManager,
 		SelfPath:     selfPath,
 	}, nil
 }
@@ -52,7 +58,12 @@ func NewManifestFinder() (*DefaultManifestFinder, error) {
 func (dmf DefaultManifestFinder) Find(utility NameVer) (*Manifest, error) {
 
 	var manifestPath string
-	for _, p := range dmf.Paths() {
+	sourcePaths, err := dmf.Paths("")
+	if err != nil {
+		return nil, err
+	}
+
+	for _, p := range sourcePaths {
 
 		tryPath := path.Join(p, fmt.Sprintf("%s.yaml", utility.Name))
 		dmf.Debugf("trying: %s", tryPath)
@@ -70,35 +81,15 @@ func (dmf DefaultManifestFinder) Find(utility NameVer) (*Manifest, error) {
 	return LoadManifest(utility, manifestPath, dmf.ConfigGetter, dmf.Logger, dmf.System)
 }
 
-func (dmf DefaultManifestFinder) Paths() []string {
-
-	var paths []string
-
-	holenPath := dmf.Getenv("HLN_PATH")
-	if len(holenPath) > 0 {
-		paths = append(paths, strings.Split(holenPath, ":")...)
-	}
-
-	configHolenPath, err := dmf.Get("manifest.path")
-	if err == nil && len(configHolenPath) > 0 {
-		paths = append(paths, strings.Split(configHolenPath, ":")...)
-	}
-
-	holenPathPost := dmf.Getenv("HLN_PATH_POST")
-	if len(holenPathPost) > 0 {
-		paths = append(paths, strings.Split(holenPathPost, ":")...)
-	}
-
-	paths = append(paths, path.Join(path.Dir(dmf.SelfPath), "manifests"))
-
-	dmf.Debugf("all paths: %s", strings.Join(paths, ":"))
-
-	return paths
-}
-
-func (dmf DefaultManifestFinder) List() error {
+func (dmf DefaultManifestFinder) List(source string) error {
 	utilityInfo := make(map[string]int)
-	for _, p := range dmf.Paths() {
+
+	sourcePaths, err := dmf.Paths(source)
+	if err != nil {
+		return err
+	}
+
+	for _, p := range sourcePaths {
 		dmf.eachManifestPath(p, func(name, fileName string) error {
 			utilityInfo[name]++
 			return nil
@@ -147,106 +138,116 @@ func (dmf DefaultManifestFinder) eachManifestPath(manifestPath string, callback 
 	return nil
 }
 
-func (dmf DefaultManifestFinder) LinkAll(holenPath, binPath string) error {
-	return dmf.linkPaths(dmf.Paths(), holenPath, binPath)
+func (dmf DefaultManifestFinder) LinkAllUtilities(source, binPath string) error {
+	return dmf.linkUtilities(true, "", source, binPath)
 }
 
-func (dmf DefaultManifestFinder) LinkMultiple(paths []string, holenPath, binPath string) error {
-	return dmf.linkPaths(paths, holenPath, binPath)
+func (dmf DefaultManifestFinder) LinkSingleUtility(name, source, binPath string) error {
+	return dmf.linkUtilities(false, name, source, binPath)
 }
 
-func (dmf DefaultManifestFinder) LinkSingle(manifestPath, holenPath, binPath string) error {
-	return dmf.linkPaths([]string{manifestPath}, holenPath, binPath)
-}
-
-func (dmf DefaultManifestFinder) linkPaths(paths []string, holenPath, binPath string) error {
+func (dmf DefaultManifestFinder) linkUtilities(all bool, name, source, binPath string) error {
 
 	// TODO: should we create binPath if non-exist?
 	binPath, _ = filepath.Abs(binPath)
 	binPath, _ = filepath.EvalSymlinks(binPath)
 
-	if len(holenPath) == 0 {
-		holenPath = dmf.SelfPath
-	}
-	holenPath, _ = filepath.Abs(holenPath)
-	// TODO: figure out if this eval is necessary or not:
-	// holenPath, _ = filepath.EvalSymlinks(holenPath)
-
 	seenUtilities := make(map[string]bool)
 
-	for _, manifestPath := range paths {
+	sourcePaths, err := dmf.Paths(source)
+	if err != nil {
+		return err
+	}
+
+	for _, manifestPath := range sourcePaths {
 		manifestPath, _ = filepath.Abs(manifestPath)
 
-		dmf.Debugf("linking from utilities found in %s to %s in %s", manifestPath, holenPath, binPath)
+		if all {
+			dmf.Debugf("linking all utilities found in %s in %s", manifestPath, binPath)
+			err := dmf.eachManifestPath(manifestPath, func(name, fileName string) error {
+				_, ok := seenUtilities[name]
+				if ok {
+					dmf.Debugf(" seen %s already, skipping", name)
+					return nil
+				}
+				seenUtilities[name] = true
+				dmf.Debugf(" linking %s", name)
 
-		err := dmf.eachManifestPath(manifestPath, func(name, fileName string) error {
-			_, ok := seenUtilities[name]
-			if ok {
-				dmf.Debugf(" seen %s already, skipping", name)
-				return nil
-			}
-			seenUtilities[name] = true
-			dmf.Debugf(" linking %s", name)
+				err := dmf.linkUtility(name, filepath.Join(manifestPath, fileName), binPath)
 
-			fullBinPath := filepath.Join(binPath, name)
-			dmf.Debugf("  full bin path %s", fullBinPath)
-
-			targetPath, err := filepath.Rel(binPath, holenPath)
-			if err != nil {
-				return err
-			}
-
-			if strings.HasSuffix(targetPath, holenPath) {
-				targetPath = holenPath
-			}
-
-			dmf.Debugf("  target path %s", targetPath)
-
-			// load up the manifest
-			manifest, err := LoadManifest(ParseName(name), filepath.Join(manifestPath, fileName), dmf.ConfigGetter, dmf.Logger, dmf.System)
-			if err != nil {
-				return err
-			}
-
-			strategies, err := manifest.LoadAllStrategies(ParseName(name))
-			if err != nil {
-				return err
-			}
-
-			// link all found versions
-			for _, strategy := range strategies {
-				err = dmf.linkToHolen(targetPath, fmt.Sprintf("%s--%s", fullBinPath, strategy.Version()))
 				if err != nil {
 					return err
 				}
+
+				return nil
+			})
+
+			if err != nil {
+				return err
 			}
+		} else {
+			tryPath := path.Join(manifestPath, fmt.Sprintf("%s.yaml", name))
+			dmf.Debugf("trying path %s", tryPath)
+			// TODO: check if manifestPath is executable and warn
+			if dmf.FileExists(tryPath) {
+				// link
+				err := dmf.linkUtility(name, tryPath, binPath)
 
-			// link utility without version number
-			return dmf.linkToHolen(targetPath, fullBinPath)
-		})
+				if err != nil {
+					return err
+				}
+				return nil
+			}
+		}
+	}
+	return nil
+}
 
+func (dmf DefaultManifestFinder) linkUtility(name, manifestPath, binPath string) error {
+	fullBinPath := filepath.Join(binPath, name)
+	dmf.Debugf("  full bin path %s", fullBinPath)
+
+	targetPath, err := filepath.Rel(binPath, manifestPath)
+	if err != nil {
+		return err
+	}
+
+	if strings.HasSuffix(targetPath, manifestPath) {
+		targetPath = manifestPath
+	}
+
+	dmf.Debugf("  target path %s", targetPath)
+
+	// load up the manifest
+	manifest, err := LoadManifest(ParseName(name), manifestPath, dmf.ConfigGetter, dmf.Logger, dmf.System)
+	if err != nil {
+		return err
+	}
+
+	strategies, err := manifest.LoadAllStrategies(ParseName(name))
+	if err != nil {
+		return err
+	}
+
+	// link all found versions
+	for _, strategy := range strategies {
+		err = dmf.linkToManifest(targetPath, fmt.Sprintf("%s--%s", fullBinPath, strategy.Version()))
 		if err != nil {
 			return err
 		}
 	}
 
-	return nil
+	// link utility without version number
+	return dmf.linkToManifest(targetPath, fullBinPath)
 }
 
-func (dmf DefaultManifestFinder) linkToHolen(targetPath, fullBinPath string) error {
+func (dmf DefaultManifestFinder) linkToManifest(targetPath, fullBinPath string) error {
 
-	// if target exists and points to something with 'holen' at the end, remove it
+	dmf.Debugf("linking %s to %s", targetPath, fullBinPath)
 	fileStat, err := os.Lstat(fullBinPath)
 	if err == nil && fileStat.Mode()&os.ModeSymlink != 0 {
-		target, err := os.Readlink(fullBinPath)
-		if err != nil {
-			return err
-		}
-		if path.Base(target) == "holen" {
-			os.Remove(fullBinPath)
-		} else {
-			return fmt.Errorf("symlink %s already exists and points at non-holen target", fullBinPath)
-		}
+		// TODO: only remove symlinks that point at holen manifests
+		os.Remove(fullBinPath)
 	}
 
 	// symlink to holen

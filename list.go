@@ -4,7 +4,7 @@ import "fmt"
 
 // ListCommand specifies options for the list subcommand.
 type ListCommand struct {
-	// nothing yet
+	Source string `short:"s" long:"source" description:"Only look for manifests in this source"`
 }
 
 var listCommand ListCommand
@@ -16,7 +16,7 @@ func (x *ListCommand) Execute(args []string) error {
 		return err
 	}
 
-	return manifestFinder.List()
+	return manifestFinder.List(listCommand.Source)
 }
 
 func init() {

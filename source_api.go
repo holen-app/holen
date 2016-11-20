@@ -9,7 +9,7 @@ import (
 )
 
 type SourcePather interface {
-	Paths() []string
+	Paths(string) ([]string, error)
 }
 
 type SourceManager interface {
@@ -201,6 +201,44 @@ func (rsm RealSourceManager) Delete(system bool, name string) error {
 	source.Delete(manifestsPath)
 
 	return rsm.Unset(system, fmt.Sprintf("source.%s", name))
+}
+
+func (rsm RealSourceManager) Paths(name string) ([]string, error) {
+	var sources []Source
+	var err error
+	if len(name) > 0 {
+		source, err := rsm.getSource(name)
+		if err != nil {
+			return []string{}, err
+		}
+
+		if source == nil {
+			return []string{}, fmt.Errorf("source %s not found", name)
+		}
+		sources = []Source{source}
+	} else {
+		sources, err = rsm.getSources()
+		if err != nil {
+			return []string{}, err
+		}
+	}
+
+	manifestsPath, err := rsm.manifestsPath()
+	if err != nil {
+		return []string{}, err
+	}
+
+	paths := []string{}
+	for _, source := range sources {
+		basePath := filepath.Join(manifestsPath, source.Name())
+		subPath := filepath.Join(basePath, "manifests")
+		if rsm.FileExists(subPath) {
+			paths = append(paths, subPath)
+		} else {
+			paths = append(paths, basePath)
+		}
+	}
+	return paths, nil
 }
 
 func NewDefaultSourceManager() (*RealSourceManager, error) {
