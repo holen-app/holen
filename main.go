@@ -59,12 +59,7 @@ func main() {
 			if err == nil && fileStat.Mode()&os.ModeSymlink != 0 {
 				utility = ParseName(path.Base(firstArg))
 
-				var err error
-				manifestFile, err = os.Readlink(firstArg)
-				if err != nil {
-					fmt.Println(err)
-					os.Exit(1)
-				}
+				manifestFile = firstArg
 			} else if strings.HasSuffix(firstArg, ".yaml") {
 				name := strings.TrimSuffix(path.Base(firstArg), ".yaml")
 				utility = NameVer{name, ""}
