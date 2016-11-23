@@ -8,7 +8,17 @@ if [[ ! $(type -P gox) ]]; then
     exit 1
 fi
 
+if [[ ! $(type -P github-release) ]]; then
+    echo "Error: github-release not found."
+    exit 1
+fi
+
 VER=$1
+
+if [[ -z $VER ]]; then
+    echo "Need to specify version."
+    exit 1
+fi
 
 git tag $VER
 
@@ -17,9 +27,27 @@ echo
 
 gox -ldflags "-X main.version=$VER" -osarch="darwin/amd64 linux/amd64"
 
-echo "$ sha1sum holen_*"
-sha1sum holen_*
-echo "$ sha256sum holen_*"
-sha256sum holen_*
-echo "$ md5sum holen_*"
-md5sum holen_*
+echo "* " > desc
+echo "" >> desc
+
+echo "$ sha1sum holen_*" >> desc
+sha1sum holen_* >> desc
+echo "$ sha256sum holen_*" >> desc
+sha256sum holen_* >> desc
+echo "$ md5sum holen_*" >> desc
+md5sum holen_* >> desc
+
+vi desc
+
+cp bootstrap.template holen.bootstrap
+perl -p -i -e "s/__VERSION__/$VER/g" holen.bootstrap
+md5sum holen_* >> holen.bootstrap
+
+git push --tags
+
+sleep 2
+
+github-release release --pre-release --user justone --repo holen --tag $VER --name $VER --description desc
+github-release upload --user justone --repo holen --tag $VER --name holen_darwin_amd64 --file holen_darwin_amd64
+github-release upload --user justone --repo holen --tag $VER --name holen_linux_amd64 --file holen_linux_amd64
+github-release upload --user justone --repo holen --tag $VER --name holen.bootstrap --file holen.bootstrap
