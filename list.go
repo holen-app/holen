@@ -20,10 +20,12 @@ func (x *ListCommand) Execute(args []string) error {
 }
 
 func init() {
-	_, err := parser.AddCommand("list",
+	cmd, err := parser.AddCommand("list",
 		"List utilities.",
 		"",
 		&listCommand)
+
+	cmd.Aliases = append(cmd.Aliases, "ls")
 
 	if err != nil {
 		fmt.Println(err)
