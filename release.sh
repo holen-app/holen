@@ -20,6 +20,11 @@ if [[ -z $VER ]]; then
     exit 1
 fi
 
+PRE_ARG=
+if [[ $VER =~ pre ]]; then
+    PRE_ARG="--pre-release"
+fi
+
 git tag $VER
 
 echo "Building $VER"
@@ -47,7 +52,7 @@ git push --tags
 
 sleep 2
 
-github-release release --pre-release --user justone --repo holen --tag $VER --name $VER --description desc
+github-release release $PRE_ARG --user justone --repo holen --tag $VER --name $VER --description desc
 github-release upload --user justone --repo holen --tag $VER --name holen_darwin_amd64 --file holen_darwin_amd64
 github-release upload --user justone --repo holen --tag $VER --name holen_linux_amd64 --file holen_linux_amd64
 github-release upload --user justone --repo holen --tag $VER --name holen.bootstrap --file holen.bootstrap
