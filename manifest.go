@@ -19,6 +19,7 @@ type ManifestFinder interface {
 	List(string) error
 	LinkAllUtilities(string, string) error
 	LinkSingleUtility(string, string, string) error
+	DefaultLinkBinPath() string
 }
 
 type DefaultManifestFinder struct {
@@ -146,7 +147,31 @@ func (dmf DefaultManifestFinder) LinkSingleUtility(name, source, binPath string)
 	return dmf.linkUtilities(false, name, source, binPath)
 }
 
+func (dmf DefaultManifestFinder) DefaultLinkBinPath() string {
+
+	envPath := dmf.Getenv("HLN_LINK_BIN_PATH")
+	if len(envPath) > 0 {
+		return envPath
+	}
+
+	configPath, err := dmf.Get("link.bin_path")
+	if err == nil && len(configPath) > 0 {
+		return configPath
+	}
+
+	homePath := dmf.Getenv("HOME")
+	if len(homePath) > 0 {
+		return path.Join(homePath, "bin")
+	}
+
+	return ""
+}
+
 func (dmf DefaultManifestFinder) linkUtilities(all bool, name, source, binPath string) error {
+
+	if len(binPath) == 0 {
+		binPath = dmf.DefaultLinkBinPath()
+	}
 
 	// TODO: should we create binPath if non-exist?
 	binPath, _ = filepath.Abs(binPath)
