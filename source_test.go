@@ -110,3 +110,23 @@ func TestGitSourceDelete(t *testing.T) {
 	_, err := os.Stat(repoPath)
 	assert.True(os.IsNotExist(err))
 }
+
+func TestSourceManagerAdd(t *testing.T) {
+	assert := assert.New(t)
+
+	logger := &MemLogger{}
+	config := NewMemConfig()
+	system := NewMemSystem()
+	sm := &RealSourceManager{
+		Logger:       logger,
+		ConfigClient: config,
+		System:       system,
+	}
+
+	assert.Nil(sm.Add(false, "test", "test/repo"))
+	assert.Equal(map[string]string{"source.test": "test/repo"}, config.UserConfig)
+
+	err := sm.Add(false, "test", "test/repo")
+	assert.Contains(err.Error(), "already exists")
+	assert.Equal(map[string]string{"source.test": "test/repo"}, config.UserConfig)
+}
