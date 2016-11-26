@@ -28,7 +28,7 @@ type DeleteSourceCommand struct {
 type SourceCommand struct {
 	Add    AddSourceCommand    `command:"add" description:"Add a source"`
 	List   ListSourceCommand   `command:"list" alias:"ls" description:"List sources"`
-	Update UpdateSourceCommand `command:"update" alias:"up" description:"Update sources"`
+	Update UpdateSourceCommand `command:"update" alias:"up" alias:"fetch" description:"Update sources"`
 	Delete DeleteSourceCommand `command:"delete" alias:"rm" description:"Delete source"`
 }
 
