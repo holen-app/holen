@@ -130,3 +130,62 @@ func TestSourceManagerAdd(t *testing.T) {
 	assert.Contains(err.Error(), "already exists")
 	assert.Equal(map[string]string{"source.test": "test/repo"}, config.UserConfig)
 }
+
+func TestSourceManagerList(t *testing.T) {
+	assert := assert.New(t)
+
+	logger := &MemLogger{}
+	config := NewMemConfig()
+	system := NewMemSystem()
+	sm := &RealSourceManager{
+		Logger:       logger,
+		ConfigClient: config,
+		System:       system,
+	}
+
+	assert.Nil(sm.Add(false, "test", "test/repo"))
+	assert.Nil(sm.List())
+
+	assert.Contains(system.StdoutMessages, "test: test/repo (git source: https://github.com/test/repo.git)\n")
+	assert.Contains(system.StdoutMessages, "main: justone/holen-manifests (git source: https://github.com/justone/holen-manifests.git)\n")
+}
+
+func TestSourceManagerPaths(t *testing.T) {
+	assert := assert.New(t)
+
+	tempdir, _ := ioutil.TempDir("", "paths")
+	defer os.RemoveAll(tempdir)
+
+	logger := &MemLogger{}
+	config := NewMemConfig()
+	system := NewMemSystem()
+	system.Setenv("HOME", tempdir)
+
+	sm := &RealSourceManager{
+		Logger:       logger,
+		ConfigClient: config,
+		System:       system,
+	}
+
+	dataPath, _ := system.DataPath()
+	testManifestsPath := filepath.Join(dataPath, "manifests", "test", "manifests")
+	mainManifestsPath := filepath.Join(dataPath, "manifests", "main")
+	system.Files[testManifestsPath] = true
+
+	assert.Nil(sm.Add(false, "test", "test/repo"))
+
+	paths, err := sm.Paths("")
+	assert.Nil(err)
+	assert.Equal(2, len(paths))
+	assert.Contains(paths, testManifestsPath)
+	assert.Contains(paths, mainManifestsPath)
+
+	paths, err = sm.Paths("main")
+	assert.Nil(err)
+	assert.Equal(1, len(paths))
+	assert.Contains(paths, mainManifestsPath)
+
+	paths, err = sm.Paths("bogus")
+	assert.NotNil(err)
+	assert.Contains(err.Error(), "not found")
+}
