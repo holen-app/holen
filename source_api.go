@@ -32,6 +32,7 @@ type RealSourceManager struct {
 	Logger
 	ConfigClient
 	System
+	Runner
 }
 
 type GitSource struct {
@@ -105,18 +106,17 @@ func (rsm RealSourceManager) getSources() ([]Source, error) {
 		return sources, err
 	}
 
-	runner := &DefaultRunner{rsm.Logger}
 	for key, val := range allConfig {
 		if strings.HasPrefix(key, "source.") {
 			name := strings.TrimPrefix(key, "source.")
 			spec := val
 			// TODO: support other source types
-			sources = append(sources, GitSource{rsm.System, rsm.Logger, runner, name, spec})
+			sources = append(sources, GitSource{rsm.System, rsm.Logger, rsm.Runner, name, spec})
 		}
 	}
 
 	// append the master source
-	sources = append(sources, GitSource{rsm.System, rsm.Logger, runner, "main", "justone/holen-manifests"})
+	sources = append(sources, GitSource{rsm.System, rsm.Logger, rsm.Runner, "main", "justone/holen-manifests"})
 
 	return sources, nil
 }
@@ -248,9 +248,11 @@ func NewDefaultSourceManager() (*RealSourceManager, error) {
 		return nil, err
 	}
 
+	logger := &LogrusLogger{}
 	return &RealSourceManager{
-		Logger:       &LogrusLogger{},
+		Logger:       logger,
 		ConfigClient: conf,
 		System:       system,
+		Runner:       &DefaultRunner{logger},
 	}, nil
 }
