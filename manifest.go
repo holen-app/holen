@@ -16,7 +16,7 @@ import (
 
 type ManifestFinder interface {
 	Find(NameVer) (*Manifest, error)
-	List(string) error
+	List(string, bool) error
 	LinkAllUtilities(string, string) error
 	LinkSingleUtility(string, string, string) error
 	DefaultLinkBinPath() string
@@ -82,8 +82,13 @@ func (dmf DefaultManifestFinder) Find(utility NameVer) (*Manifest, error) {
 	return LoadManifest(utility, manifestPath, dmf.ConfigGetter, dmf.Logger, dmf.System)
 }
 
-func (dmf DefaultManifestFinder) List(source string) error {
-	utilityInfo := make(map[string]int)
+type listInfo struct {
+	name, desc string
+	count      int
+}
+
+func (dmf DefaultManifestFinder) List(source string, desc bool) error {
+	utilityInfo := make(map[string]*listInfo)
 
 	sourcePaths, err := dmf.Paths(source)
 	if err != nil {
@@ -92,7 +97,17 @@ func (dmf DefaultManifestFinder) List(source string) error {
 
 	for _, p := range sourcePaths {
 		dmf.eachManifestPath(p, func(name, fileName string) error {
-			utilityInfo[name]++
+			if info, ok := utilityInfo[name]; !ok {
+				info := &listInfo{name, "", 1}
+				man, err := LoadManifest(ParseName(name), filepath.Join(p, fileName), dmf.ConfigGetter, dmf.Logger, dmf.System)
+				if err == nil {
+					info.desc = man.Data.Desc
+				}
+				utilityInfo[name] = info
+			} else {
+				info.count++
+			}
+
 			return nil
 		})
 	}
@@ -110,7 +125,11 @@ func (dmf DefaultManifestFinder) List(source string) error {
 	sort.Strings(utilityNames)
 
 	for _, name := range utilityNames {
-		dmf.Stdoutf("%v\n", name)
+		if desc {
+			dmf.Stdoutf("%s: %s\n", name, utilityInfo[name].desc)
+		} else {
+			dmf.Stdoutf("%s\n", name)
+		}
 	}
 
 	return nil
