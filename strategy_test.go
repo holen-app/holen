@@ -65,11 +65,12 @@ func TestDockerAllOptions(t *testing.T) {
 	td.Data.MountPwdAs = "/test"
 	td.Data.MountPwd = true
 	td.Data.RunAsUser = true
+	td.Data.PwdWorkdir = true
 	td.Data.Terminal = "always"
 	assert.Nil(td.Run([]string{"first", "second"}))
 
 	wd, _ := os.Getwd()
-	assert.Equal(tu.MemRunner.History[0], fmt.Sprintf("docker run -i -v /var/run/docker.sock:/var/run/docker.sock --pid host --volume %s:/test --volume %s:%s -u 1000:1000 -t --rm testdocker:1.9 first second", wd, wd, wd))
+	assert.Equal(tu.MemRunner.History[0], fmt.Sprintf("docker run -i -v /var/run/docker.sock:/var/run/docker.sock --pid host --volume %s:/test --workdir /test --volume %s:%s --workdir %s -u 1000:1000 -t --rm testdocker:1.9 first second", wd, wd, wd, wd))
 }
 
 func TestDockerNotInstalled(t *testing.T) {

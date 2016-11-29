@@ -505,6 +505,7 @@ func (m *Manifest) loadStrategy(strategyType string, strategyData map[interface{
 		image, imageOk := strategyData["image"]
 		mountPwdAs, mountPwdAsOk := strategyData["mount_pwd_as"]
 		runAsUser, runAsUserOk := strategyData["run_as_user"]
+		pwdWorkdir, pwdWorkdirOk := strategyData["pwd_workdir"]
 
 		if !imageOk {
 			return dummy, errors.New("At least 'image' needed for docker strategy to work")
@@ -531,6 +532,7 @@ func (m *Manifest) loadStrategy(strategyType string, strategyData map[interface{
 				Terminal:    terminal.(string),
 				MountPwdAs:  mountPwdAs.(string),
 				RunAsUser:   runAsUserOk && runAsUser.(bool),
+				PwdWorkdir:  pwdWorkdirOk && pwdWorkdir.(bool),
 				OSArchData:  osArchData,
 			},
 		}, nil

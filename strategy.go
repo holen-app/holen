@@ -78,6 +78,7 @@ type DockerData struct {
 	Terminal    string                       `yaml:"terminal"`
 	PidHost     bool                         `yaml:"pid_host"`
 	RunAsUser   bool                         `yaml:"run_as_user"`
+	PwdWorkdir  bool                         `yaml:"pwd_workdir"`
 	OSArchData  map[string]map[string]string `yaml:"os_arch_map"`
 }
 
@@ -158,10 +159,16 @@ func (ds DockerStrategy) GenerateArgs(image string, extraArgs []string) []string
 	if len(ds.Data.MountPwdAs) > 0 {
 		wd, _ := os.Getwd()
 		args = append(args, "--volume", fmt.Sprintf("%s:%s", wd, ds.Data.MountPwdAs))
+		if ds.Data.PwdWorkdir {
+			args = append(args, "--workdir", ds.Data.MountPwdAs)
+		}
 	}
 	if ds.Data.MountPwd {
 		wd, _ := os.Getwd()
 		args = append(args, "--volume", fmt.Sprintf("%s:%s", wd, wd))
+		if ds.Data.PwdWorkdir {
+			args = append(args, "--workdir", wd)
+		}
 	}
 	if ds.Data.RunAsUser {
 		args = append(args, "-u", fmt.Sprintf("%d:%d", ds.UID(), ds.GID()))
