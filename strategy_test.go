@@ -104,6 +104,42 @@ func TestDockerCommandFailed(t *testing.T) {
 	// assert.Contains(err.Error(), "bad output")
 }
 
+func TestDockerBootstrapScript(t *testing.T) {
+	assert := assert.New(t)
+
+	var tests = []struct {
+		modify func(*TestUtils, *DockerStrategy)
+		err    error
+	}{
+		{
+			func(tu *TestUtils, td *DockerStrategy) {},
+			nil,
+		},
+		{
+			func(tu *TestUtils, td *DockerStrategy) {
+				tu.MemRunner.FailCommand("docker run --rm -i testdocker:1.9 cat /bootstrap", fmt.Errorf("fail"))
+			},
+			fmt.Errorf("fail"),
+		},
+	}
+
+	for _, test := range tests {
+		tu, td := newDockerStrategy()
+		test.modify(tu, td)
+		td.Data.BootstrapScript = "/bootstrap"
+
+		result := td.Run([]string{"first", "second"})
+
+		if test.err != nil {
+			assert.NotNil(result)
+		} else {
+			assert.Nil(result)
+			assert.Contains(tu.MemRunner.CommandOutputCmds, "docker run --rm -i testdocker:1.9 cat /bootstrap")
+			assert.Contains(tu.MemRunner.History[0], "/execute first second")
+		}
+	}
+}
+
 func TestDockerInspect(t *testing.T) {
 	assert := assert.New(t)
 

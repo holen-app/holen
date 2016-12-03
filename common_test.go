@@ -83,9 +83,10 @@ func (ml *MemLogger) Warnf(str string, args ...interface{}) {
 }
 
 type MemRunner struct {
-	History       []string
-	FailCheckCmds map[string]bool
-	FailCmds      map[string]error
+	History           []string
+	FailCheckCmds     map[string]bool
+	FailCmds          map[string]error
+	CommandOutputCmds map[string]string
 }
 
 func (mr *MemRunner) CheckCommand(command string, args []string) bool {
@@ -113,6 +114,23 @@ func (mr *MemRunner) RunCommand(command string, args []string) error {
 
 func (mr *MemRunner) ExecCommand(command string, args []string) error {
 	return mr.RunCommand(command, args)
+}
+
+func (mr *MemRunner) CommandOutputToFile(command string, args []string, outputFile string) error {
+	if mr.CommandOutputCmds == nil {
+		mr.CommandOutputCmds = make(map[string]string)
+	}
+
+	fullCommand := strings.Join(append([]string{command}, args...), " ")
+	mr.CommandOutputCmds[fullCommand] = outputFile
+
+	e, ok := mr.FailCmds[fullCommand]
+
+	if !ok {
+		return nil
+	} else {
+		return e
+	}
 }
 
 func (mr *MemRunner) FailCheck(fullCommand string) {
