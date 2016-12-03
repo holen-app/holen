@@ -67,19 +67,20 @@ type Strategy interface {
 }
 
 type DockerData struct {
-	Name        string
-	Desc        string
-	Version     string                       `yaml:"version"`
-	Image       string                       `yaml:"image"`
-	MountPwd    bool                         `yaml:"mount_pwd"`
-	MountPwdAs  string                       `yaml:"mount_pwd_as"`
-	DockerConn  bool                         `yaml:"docker_conn"`
-	Interactive bool                         `yaml:"interactive"`
-	Terminal    string                       `yaml:"terminal"`
-	PidHost     bool                         `yaml:"pid_host"`
-	RunAsUser   bool                         `yaml:"run_as_user"`
-	PwdWorkdir  bool                         `yaml:"pwd_workdir"`
-	OSArchData  map[string]map[string]string `yaml:"os_arch_map"`
+	Name            string
+	Desc            string
+	Version         string                       `yaml:"version"`
+	Image           string                       `yaml:"image"`
+	MountPwd        bool                         `yaml:"mount_pwd"`
+	MountPwdAs      string                       `yaml:"mount_pwd_as"`
+	DockerConn      bool                         `yaml:"docker_conn"`
+	Interactive     bool                         `yaml:"interactive"`
+	Terminal        string                       `yaml:"terminal"`
+	PidHost         bool                         `yaml:"pid_host"`
+	RunAsUser       bool                         `yaml:"run_as_user"`
+	PwdWorkdir      bool                         `yaml:"pwd_workdir"`
+	BootstrapScript string                       `yaml:"bootstrap_script"`
+	OSArchData      map[string]map[string]string `yaml:"os_arch_map"`
 }
 
 type DockerStrategy struct {
@@ -130,9 +131,32 @@ func (ds DockerStrategy) Run(extraArgs []string) error {
 	// 	return errors.Wrap(err, "can't pull image")
 	// }
 
-	args := ds.GenerateArgs(image, extraArgs)
+	command := "docker"
+	var args []string
+	if len(ds.Data.BootstrapScript) > 0 {
+		ds.Debugf("bootstrapping with %s\n", ds.Data.BootstrapScript)
 
-	err = ds.ExecCommand("docker", args)
+		args = extraArgs
+
+		tempdir, err := ioutil.TempDir("", "holen")
+		defer os.RemoveAll(tempdir)
+
+		err = ds.CommandOutputToFile("docker", []string{"run", "--rm", "-i", image, "cat", ds.Data.BootstrapScript}, filepath.Join(tempdir, "execute"))
+		if err != nil {
+			return err
+		}
+
+		command = filepath.Join(tempdir, "execute")
+
+		err = ds.MakeExecutable(command)
+		if err != nil {
+			return err
+		}
+	} else {
+		args = ds.GenerateArgs(image, extraArgs)
+	}
+
+	err = ds.ExecCommand(command, args)
 	if err != nil {
 		return errors.Wrap(err, "can't run image")
 	}

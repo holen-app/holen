@@ -506,6 +506,7 @@ func (m *Manifest) loadStrategy(strategyType string, strategyData map[interface{
 		mountPwdAs, mountPwdAsOk := strategyData["mount_pwd_as"]
 		runAsUser, runAsUserOk := strategyData["run_as_user"]
 		pwdWorkdir, pwdWorkdirOk := strategyData["pwd_workdir"]
+		bootstrapScript, bootstrapScriptOk := strategyData["bootstrap_script"]
 
 		if !imageOk {
 			return dummy, errors.New("At least 'image' needed for docker strategy to work")
@@ -517,23 +518,27 @@ func (m *Manifest) loadStrategy(strategyType string, strategyData map[interface{
 		if !mountPwdAsOk {
 			mountPwdAs = ""
 		}
+		if !bootstrapScriptOk {
+			bootstrapScript = ""
+		}
 
 		return DockerStrategy{
 			StrategyCommon: common,
 			Data: DockerData{
-				Name:        m.Data.Name,
-				Desc:        m.Data.Desc,
-				Version:     strategyData["version"].(string),
-				Image:       image.(string),
-				MountPwd:    mountPwdOk && mountPwd.(bool),
-				DockerConn:  dockerConnOk && dockerConn.(bool),
-				Interactive: !interactiveOk || interactive.(bool),
-				PidHost:     pidHostOk && pidHost.(bool),
-				Terminal:    terminal.(string),
-				MountPwdAs:  mountPwdAs.(string),
-				RunAsUser:   runAsUserOk && runAsUser.(bool),
-				PwdWorkdir:  pwdWorkdirOk && pwdWorkdir.(bool),
-				OSArchData:  osArchData,
+				Name:            m.Data.Name,
+				Desc:            m.Data.Desc,
+				Version:         strategyData["version"].(string),
+				Image:           image.(string),
+				MountPwd:        mountPwdOk && mountPwd.(bool),
+				DockerConn:      dockerConnOk && dockerConn.(bool),
+				Interactive:     !interactiveOk || interactive.(bool),
+				PidHost:         pidHostOk && pidHost.(bool),
+				Terminal:        terminal.(string),
+				MountPwdAs:      mountPwdAs.(string),
+				RunAsUser:       runAsUserOk && runAsUser.(bool),
+				PwdWorkdir:      pwdWorkdirOk && pwdWorkdir.(bool),
+				BootstrapScript: bootstrapScript.(string),
+				OSArchData:      osArchData,
 			},
 		}, nil
 	} else if strategyType == "binary" {

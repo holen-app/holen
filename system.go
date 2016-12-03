@@ -168,6 +168,7 @@ type Runner interface {
 	RunCommand(string, []string) error
 	ExecCommand(string, []string) error
 	CheckCommand(string, []string) bool
+	CommandOutputToFile(string, []string, string) error
 }
 
 type DefaultRunner struct {
@@ -200,4 +201,20 @@ func (dr DefaultRunner) ExecCommand(command string, args []string) error {
 	}
 	return syscall.Exec(fullPath, append([]string{path.Base(command)}, args...), os.Environ())
 	// end adapted from
+}
+
+func (dr DefaultRunner) CommandOutputToFile(command string, args []string, outputFile string) error {
+
+	file, err := os.Create(outputFile)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	cmd := exec.Command(command, args...)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = file
+	cmd.Stderr = os.Stderr
+
+	return cmd.Run()
 }
