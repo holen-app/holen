@@ -135,6 +135,14 @@ func TestDockerBootstrapScript(t *testing.T) {
 		} else {
 			assert.Nil(result)
 			assert.Contains(tu.MemRunner.CommandOutputCmds, "docker run --rm -i testdocker:1.9 cat /bootstrap")
+
+			// check env vars for actual run
+			var envs [][]string
+			for _, v := range tu.MemRunner.HistoryEnv {
+				envs = append(envs, v)
+			}
+			assert.Equal([]string{"DOCKER_IMAGE=testdocker:1.9"}, envs[0])
+
 			assert.Contains(tu.MemRunner.History[0], "/execute first second")
 		}
 	}

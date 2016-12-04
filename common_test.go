@@ -84,6 +84,7 @@ func (ml *MemLogger) Warnf(str string, args ...interface{}) {
 
 type MemRunner struct {
 	History           []string
+	HistoryEnv        map[string][]string
 	FailCheckCmds     map[string]bool
 	FailCmds          map[string]error
 	CommandOutputCmds map[string]string
@@ -113,6 +114,14 @@ func (mr *MemRunner) RunCommand(command string, args []string) error {
 }
 
 func (mr *MemRunner) ExecCommand(command string, args []string) error {
+	return mr.RunCommand(command, args)
+}
+
+func (mr *MemRunner) ExecCommandWithEnv(command string, args []string, extraEnv []string) error {
+	if mr.HistoryEnv == nil {
+		mr.HistoryEnv = make(map[string][]string)
+	}
+	mr.HistoryEnv[strings.Join(append([]string{command}, args...), " ")] = extraEnv
 	return mr.RunCommand(command, args)
 }
 

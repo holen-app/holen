@@ -167,6 +167,7 @@ func (dd DefaultDownloader) PullDockerImage(image string) error {
 type Runner interface {
 	RunCommand(string, []string) error
 	ExecCommand(string, []string) error
+	ExecCommandWithEnv(string, []string, []string) error
 	CheckCommand(string, []string) bool
 	CommandOutputToFile(string, []string, string) error
 }
@@ -192,14 +193,18 @@ func (dr DefaultRunner) RunCommand(command string, args []string) error {
 }
 
 func (dr DefaultRunner) ExecCommand(command string, args []string) error {
-	dr.Debugf("Running command %s with args %v", command, args)
+	return dr.ExecCommandWithEnv(command, args, make([]string, 0))
+}
+
+func (dr DefaultRunner) ExecCommandWithEnv(command string, args []string, extraEnv []string) error {
+	dr.Debugf("Running command %s with args %v and extra env %v", command, args, extraEnv)
 
 	// adapted from https://gobyexample.com/execing-processes
 	fullPath, err := exec.LookPath(command)
 	if err != nil {
 		return err
 	}
-	return syscall.Exec(fullPath, append([]string{path.Base(command)}, args...), os.Environ())
+	return syscall.Exec(fullPath, append([]string{path.Base(command)}, args...), append(os.Environ(), extraEnv...))
 	// end adapted from
 }
 

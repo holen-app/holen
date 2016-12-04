@@ -133,6 +133,7 @@ func (ds DockerStrategy) Run(extraArgs []string) error {
 
 	command := "docker"
 	var args []string
+	var extraEnv []string
 	if len(ds.Data.BootstrapScript) > 0 {
 		ds.Debugf("bootstrapping with %s\n", ds.Data.BootstrapScript)
 
@@ -146,6 +147,9 @@ func (ds DockerStrategy) Run(extraArgs []string) error {
 			return err
 		}
 
+		// TODO: allow env var name to be overridden
+		extraEnv = append(extraEnv, fmt.Sprintf("DOCKER_IMAGE=%s", image))
+
 		command = filepath.Join(tempdir, "execute")
 
 		err = ds.MakeExecutable(command)
@@ -156,7 +160,7 @@ func (ds DockerStrategy) Run(extraArgs []string) error {
 		args = ds.GenerateArgs(image, extraArgs)
 	}
 
-	err = ds.ExecCommand(command, args)
+	err = ds.ExecCommandWithEnv(command, args, extraEnv)
 	if err != nil {
 		return errors.Wrap(err, "can't run image")
 	}
