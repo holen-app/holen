@@ -139,8 +139,10 @@ func (ds DockerStrategy) Run(extraArgs []string) error {
 
 		args = extraArgs
 
+		// TODO: figure out how to clean up this temp dir
+		//       "defer os.RemoveAll(tempdir)" won't work because we Exec below
+		// TODO: don't put this file in /tmp, some systems have that mounted noexec
 		tempdir, err := ioutil.TempDir("", "holen")
-		defer os.RemoveAll(tempdir)
 
 		err = ds.CommandOutputToFile("docker", []string{"run", "--rm", "-i", image, "cat", ds.Data.BootstrapScript}, filepath.Join(tempdir, "execute"))
 		if err != nil {
