@@ -152,7 +152,7 @@ func TestSourceManagerList(t *testing.T) {
 	assert.Nil(sm.List())
 
 	assert.Contains(tu.MemSystem.StdoutMessages, "test: test/repo (git source: https://github.com/test/repo.git)\n")
-	assert.Contains(tu.MemSystem.StdoutMessages, "main: justone/holen-manifests (git source: https://github.com/justone/holen-manifests.git)\n")
+	assert.Contains(tu.MemSystem.StdoutMessages, "main: holen-app/manifests (git source: https://github.com/holen-app/manifests.git)\n")
 }
 
 func TestSourceManagerPaths(t *testing.T) {

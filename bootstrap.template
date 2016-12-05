@@ -8,7 +8,7 @@ use File::Basename;
 
 my $version = '__VERSION__';
 
-my $base_url = 'https://github.com/justone/holen/releases/download';
+my $base_url = 'https://github.com/holen-app/holen/releases/download';
 my $os       = $^O;
 my $bits     = `uname -m`;
 

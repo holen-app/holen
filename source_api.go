@@ -116,7 +116,7 @@ func (rsm RealSourceManager) getSources() ([]Source, error) {
 	}
 
 	// append the master source
-	sources = append(sources, GitSource{rsm.System, rsm.Logger, rsm.Runner, "main", "justone/holen-manifests"})
+	sources = append(sources, GitSource{rsm.System, rsm.Logger, rsm.Runner, "main", "holen-app/manifests"})
 
 	return sources, nil
 }
