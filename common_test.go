@@ -282,3 +282,14 @@ func (ms *MemSystem) DataPath() (string, error) {
 func (ms *MemSystem) Setenv(key, value string) {
 	ms.Env[key] = value
 }
+
+type MemSourcePather struct {
+	TestPaths []string
+	Error     error
+	Selected  string
+}
+
+func (msp *MemSourcePather) Paths(name string) ([]string, error) {
+	msp.Selected = name
+	return msp.TestPaths, msp.Error
+}

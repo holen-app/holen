@@ -1,16 +1,19 @@
 package main
 
 import (
+	"os"
+	"path"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
-func newTestManifestFinder(selfPath string, conf ConfigGetter, logger Logger, system System) (*DefaultManifestFinder, error) {
+func newTestManifestFinder(selfPath string, conf ConfigGetter, logger Logger, system System, sourcePather SourcePather) (*DefaultManifestFinder, error) {
 	return &DefaultManifestFinder{
 		Logger:       logger,
 		ConfigGetter: conf,
 		System:       system,
+		SourcePather: sourcePather,
 		SelfPath:     selfPath,
 	}, nil
 }
@@ -201,79 +204,46 @@ func TestStrategyOrder(t *testing.T) {
 	}
 }
 
-// func TestPaths(t *testing.T) {
-// 	assert := assert.New(t)
+func TestList(t *testing.T) {
+	assert := assert.New(t)
 
-// 	wd, _ := os.Getwd()
-// 	localDir := path.Join(wd, "testdata", "single", "manifests")
+	wd, _ := os.Getwd()
 
-// 	var pathsTests = []struct {
-// 		adjustment func(*MemConfig, *MemSystem)
-// 		result     []string
-// 	}{
-// 		{
-// 			nil,
-// 			[]string{localDir},
-// 		},
-// 		{
-// 			func(config *MemConfig, sys *MemSystem) {
-// 				sys.Setenv("HLN_PATH", "/path/one:/path/two")
-// 			},
-// 			[]string{"/path/one", "/path/two", localDir},
-// 		},
-// 		{
-// 			func(config *MemConfig, sys *MemSystem) {
-// 				sys.Setenv("HLN_PATH_POST", "/path/one:/path/two")
-// 			},
-// 			[]string{"/path/one", "/path/two", localDir},
-// 		},
-// 		{
-// 			func(config *MemConfig, sys *MemSystem) {
-// 				sys.Setenv("HLN_PATH", "/path/one")
-// 				sys.Setenv("HLN_PATH_POST", "/path/two")
-// 				config.Set(false, "manifest.path", "/path/config")
-// 			},
-// 			[]string{"/path/one", "/path/config", "/path/two", localDir},
-// 		},
-// 	}
+	var tests = []struct {
+		name   string
+		desc   bool
+		result []string
+	}{
+		{
+			"",
+			false,
+			[]string{"jq\n"},
+		},
+		{
+			"",
+			true,
+			[]string{"jq: Lightweight and flexible command-line JSON processor\n"},
+		},
+	}
 
-// 	for _, test := range pathsTests {
+	for _, test := range tests {
+		logger := &MemLogger{}
+		config := NewMemConfig()
+		system := NewMemSystem()
+		sourcePather := &MemSourcePather{
+			TestPaths: []string{path.Join(wd, "testdata", "single", "manifests")},
+		}
 
-// 		logger := &MemLogger{}
-// 		config := NewMemConfig()
-// 		system := NewMemSystem()
+		system.Setenv("HLN_PATH", "/path/one")
+		manifestFinder, err := newTestManifestFinder("", config, logger, system, sourcePather)
+		assert.Nil(err)
 
-// 		manifestFinder, err := newTestManifestFinder(path.Join(wd, "testdata", "single", "holen"), config, logger, system)
-// 		assert.Nil(err)
+		err = manifestFinder.List(test.name, test.desc)
+		assert.Nil(err)
 
-// 		if test.adjustment != nil {
-// 			test.adjustment(config, system)
-// 		}
-
-// 		result := manifestFinder.Paths()
-// 		assert.Equal(result, test.result)
-// 	}
-// }
-
-// func TestList(t *testing.T) {
-// 	assert := assert.New(t)
-// 	var err error
-
-// 	wd, _ := os.Getwd()
-
-// 	logger := &MemLogger{}
-// 	config := NewMemConfig()
-// 	system := NewMemSystem()
-
-// 	system.Setenv("HLN_PATH", "/path/one")
-// 	manifestFinder, err := newTestManifestFinder(path.Join(wd, "testdata", "single", "holen"), config, logger, system)
-// 	assert.Nil(err)
-
-// 	err = manifestFinder.List()
-// 	assert.Nil(err)
-
-// 	assert.Equal(system.StdoutMessages, []string{"jq\n"})
-// }
+		assert.Equal(system.StdoutMessages, test.result)
+	}
+}
 
 // func TestLink(t *testing.T) {
 // 	assert := assert.New(t)
