@@ -18,7 +18,7 @@ type TestManifestUtils struct {
 func newTestManifestFinder(selfPath string) (*TestManifestUtils, *DefaultManifestFinder) {
 	tu := &TestManifestUtils{
 		MemLogger:       &MemLogger{},
-		MemConfig:       &MemConfig{},
+		MemConfig:       NewMemConfig(),
 		MemSystem:       NewMemSystem(),
 		MemSourcePather: &MemSourcePather{},
 	}
@@ -214,6 +214,52 @@ func TestStrategyOrder(t *testing.T) {
 
 		test.adjustment(config)
 		assert.Equal(manifest.StrategyOrder(ParseName(test.utility)), test.result)
+	}
+}
+
+func TestDefaultLinkBinPath(t *testing.T) {
+	assert := assert.New(t)
+
+	wd, _ := os.Getwd()
+
+	var tests = []struct {
+		update   func(*TestManifestUtils)
+		expected string
+	}{
+		{
+			func(tu *TestManifestUtils) {
+				tu.MemSystem.Setenv("HOME", "")
+			},
+			"",
+		},
+		{
+			func(tu *TestManifestUtils) {
+				tu.MemSystem.Setenv("HOME", "/home/user")
+			},
+			"/home/user/bin",
+		},
+		{
+			func(tu *TestManifestUtils) {
+				tu.MemSystem.Setenv("HLN_LINK_BIN_PATH", "/path/to/bin")
+			},
+			"/path/to/bin",
+		},
+		{
+			func(tu *TestManifestUtils) {
+
+				tu.MemConfig.Set(false, "link.bin_path", "/other/bin/path")
+			},
+			"/other/bin/path",
+		},
+	}
+
+	for _, test := range tests {
+		tu, manifestFinder := newTestManifestFinder("")
+		test.update(tu)
+		tu.MemSourcePather.TestPaths = []string{path.Join(wd, "testdata", "single", "manifests")}
+
+		result := manifestFinder.DefaultLinkBinPath()
+		assert.Equal(test.expected, result)
 	}
 }
 
