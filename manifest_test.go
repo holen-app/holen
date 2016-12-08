@@ -8,14 +8,27 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func newTestManifestFinder(selfPath string, conf ConfigGetter, logger Logger, system System, sourcePather SourcePather) (*DefaultManifestFinder, error) {
-	return &DefaultManifestFinder{
-		Logger:       logger,
-		ConfigGetter: conf,
-		System:       system,
-		SourcePather: sourcePather,
+type TestManifestUtils struct {
+	*MemLogger
+	*MemConfig
+	*MemSystem
+	*MemSourcePather
+}
+
+func newTestManifestFinder(selfPath string) (*TestManifestUtils, *DefaultManifestFinder) {
+	tu := &TestManifestUtils{
+		MemLogger:       &MemLogger{},
+		MemConfig:       &MemConfig{},
+		MemSystem:       NewMemSystem(),
+		MemSourcePather: &MemSourcePather{},
+	}
+	return tu, &DefaultManifestFinder{
+		Logger:       tu.MemLogger,
+		ConfigGetter: tu.MemConfig,
+		System:       tu.MemSystem,
+		SourcePather: tu.MemSourcePather,
 		SelfPath:     selfPath,
-	}, nil
+	}
 }
 
 // func TestRun(t *testing.T) {
@@ -227,21 +240,13 @@ func TestList(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		logger := &MemLogger{}
-		config := NewMemConfig()
-		system := NewMemSystem()
-		sourcePather := &MemSourcePather{
-			TestPaths: []string{path.Join(wd, "testdata", "single", "manifests")},
-		}
+		tu, manifestFinder := newTestManifestFinder("")
+		tu.MemSourcePather.TestPaths = []string{path.Join(wd, "testdata", "single", "manifests")}
 
-		system.Setenv("HLN_PATH", "/path/one")
-		manifestFinder, err := newTestManifestFinder("", config, logger, system, sourcePather)
+		err := manifestFinder.List(test.name, test.desc)
 		assert.Nil(err)
 
-		err = manifestFinder.List(test.name, test.desc)
-		assert.Nil(err)
-
-		assert.Equal(system.StdoutMessages, test.result)
+		assert.Equal(tu.MemSystem.StdoutMessages, test.result)
 	}
 }
 
