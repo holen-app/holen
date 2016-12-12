@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+	"io/ioutil"
 	"os"
 	"path"
 	"testing"
@@ -293,6 +295,64 @@ func TestList(t *testing.T) {
 		assert.Nil(err)
 
 		assert.Equal(tu.MemSystem.StdoutMessages, test.result)
+	}
+}
+
+func TestLink(t *testing.T) {
+	assert := assert.New(t)
+
+	wd, _ := os.Getwd()
+	manifestsPath := path.Join(wd, "testdata", "link", "manifests")
+
+	var tests = []struct {
+		link  func(*TestManifestUtils, ManifestFinder, string) error
+		err   error
+		links []string
+	}{
+		{
+			func(tu *TestManifestUtils, mf ManifestFinder, binPath string) error {
+				tu.MemSystem.Files[fmt.Sprintf(path.Join(manifestsPath, "util1.yaml"))] = true
+				return mf.LinkSingleUtility("util1", "", binPath)
+			},
+			nil,
+			[]string{"util1", "util1--1.4", "util1--1.5", "util1--1.6"},
+		},
+	}
+
+	for _, test := range tests {
+		tu, manifestFinder := newTestManifestFinder("")
+
+		var err error
+		tempdir, _ := ioutil.TempDir("", "link")
+		defer os.RemoveAll(tempdir)
+		tu.MemSystem.Setenv("HLN_LINK_BIN_PATH", tempdir)
+		tu.MemSourcePather.TestPaths = []string{manifestsPath}
+
+		err = test.link(tu, manifestFinder, tempdir)
+
+		if test.err != nil {
+			assert.NotNil(err)
+			assert.Contains(err.Error(), test.err.Error())
+		} else {
+			assert.Nil(err)
+
+			files, err := ioutil.ReadDir(tempdir)
+			assert.Nil(err)
+
+			fileNames := make([]string, len(files))
+			for i, info := range files {
+				fileNames[i] = info.Name()
+
+				// target, err := os.Readlink(path.Join(tempdir, info.Name()))
+				// assert.Nil(err)
+				// assert.Equal(target, test.target)
+			}
+
+			// fmt.Println(fileNames)
+			assert.Equal(fileNames, test.links)
+		}
+
+		// fmt.Println(tu.MemLogger.Debugs)
 	}
 }
 
