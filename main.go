@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
-	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/Sirupsen/logrus"
@@ -32,7 +32,7 @@ var inlineParser = flags.NewParser(&inlineOptions, flags.PrintErrors|flags.Ignor
 var originalArgs []string
 
 func main() {
-	basename := path.Base(os.Args[0])
+	basename := filepath.Base(os.Args[0])
 	if utilityNameOverride := os.Getenv("HLN_UTILITY"); len(utilityNameOverride) > 0 {
 		basename = utilityNameOverride
 	}
@@ -57,17 +57,17 @@ func main() {
 			firstArg := os.Args[1]
 			fileStat, err := os.Lstat(firstArg)
 			if err == nil && fileStat.Mode()&os.ModeSymlink != 0 {
-				utility = ParseName(path.Base(firstArg))
+				utility = ParseName(filepath.Base(firstArg))
 
 				manifestFile = firstArg
 			} else if strings.HasSuffix(firstArg, ".yaml") {
-				name := strings.TrimSuffix(path.Base(firstArg), ".yaml")
+				name := strings.TrimSuffix(filepath.Base(firstArg), ".yaml")
 				utility = NameVer{name, ""}
 				manifestFile = firstArg
 			} else {
 				_, err := LoadManifest(NameVer{}, firstArg, conf, &LogrusLogger{}, system)
 				if err == nil {
-					utility = ParseName(path.Base(firstArg))
+					utility = ParseName(filepath.Base(firstArg))
 					manifestFile = firstArg
 				}
 			}

@@ -5,7 +5,6 @@ import (
 	"io/ioutil"
 	"net/url"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 
@@ -297,7 +296,7 @@ func (bs BinaryStrategy) Run(args []string) error {
 				return errors.Wrap(err, "unable to parse url")
 			}
 
-			fileName := path.Base(u.Path)
+			fileName := filepath.Base(u.Path)
 			archPath := filepath.Join(tempdir, fileName)
 			unpackedPath := filepath.Join(tempdir, "unpacked")
 

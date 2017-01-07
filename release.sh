@@ -30,7 +30,7 @@ git tag $VER
 echo "Building $VER"
 echo
 
-gox -ldflags "-X main.version=$VER" -osarch="darwin/amd64 linux/amd64"
+gox -ldflags "-X main.version=$VER" -osarch="darwin/amd64 linux/amd64 windows/amd64"
 
 echo "* " > desc
 echo "" >> desc
@@ -55,4 +55,5 @@ sleep 2
 github-release release $PRE_ARG --user holen-app --repo holen --tag $VER --name $VER --description desc
 github-release upload --user holen-app --repo holen --tag $VER --name holen_darwin_amd64 --file holen_darwin_amd64
 github-release upload --user holen-app --repo holen --tag $VER --name holen_linux_amd64 --file holen_linux_amd64
+github-release upload --user holen-app --repo holen --tag $VER --name holen_windows_amd64.exe --file holen_windows_amd64.exe
 github-release upload --user holen-app --repo holen --tag $VER --name holen.bootstrap --file holen.bootstrap

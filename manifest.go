@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -66,7 +65,7 @@ func (dmf DefaultManifestFinder) Find(utility NameVer) (*Manifest, error) {
 
 	for _, p := range sourcePaths {
 
-		tryPath := path.Join(p, fmt.Sprintf("%s.yaml", utility.Name))
+		tryPath := filepath.Join(p, fmt.Sprintf("%s.yaml", utility.Name))
 		dmf.Debugf("trying: %s", tryPath)
 		if _, err := os.Stat(tryPath); err == nil {
 			dmf.Debugf("found manifest: %s", tryPath)
@@ -180,7 +179,7 @@ func (dmf DefaultManifestFinder) DefaultLinkBinPath() string {
 
 	homePath := dmf.Getenv("HOME")
 	if len(homePath) > 0 {
-		return path.Join(homePath, "bin")
+		return filepath.Join(homePath, "bin")
 	}
 
 	return ""
@@ -230,7 +229,7 @@ func (dmf DefaultManifestFinder) linkUtilities(all bool, name, source, binPath s
 				return err
 			}
 		} else {
-			tryPath := path.Join(manifestPath, fmt.Sprintf("%s.yaml", name))
+			tryPath := filepath.Join(manifestPath, fmt.Sprintf("%s.yaml", name))
 			dmf.Debugf("trying path %s", tryPath)
 			// TODO: check if manifestPath is executable and warn
 			if dmf.FileExists(tryPath) {

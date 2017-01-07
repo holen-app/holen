@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"path"
 	"path/filepath"
 	"runtime"
 	"syscall"
@@ -199,13 +198,24 @@ func (dr DefaultRunner) ExecCommand(command string, args []string) error {
 func (dr DefaultRunner) ExecCommandWithEnv(command string, args []string, extraEnv []string) error {
 	dr.Debugf("Running command %s with args %v and extra env %v", command, args, extraEnv)
 
-	// adapted from https://gobyexample.com/execing-processes
-	fullPath, err := exec.LookPath(command)
-	if err != nil {
-		return err
+	if runtime.GOOS == "windows" {
+		if err := dr.RunCommand(command, args); err != nil {
+			if eerr, ok := err.(*exec.ExitError); ok {
+				os.Exit(eerr.Sys().(syscall.WaitStatus).ExitStatus())
+			}
+		}
+
+		os.Exit(0)
+		return nil
+	} else {
+		// adapted from https://gobyexample.com/execing-processes
+		fullPath, err := exec.LookPath(command)
+		if err != nil {
+			return err
+		}
+		return syscall.Exec(fullPath, append([]string{filepath.Base(command)}, args...), append(os.Environ(), extraEnv...))
+		// end adapted from
 	}
-	return syscall.Exec(fullPath, append([]string{path.Base(command)}, args...), append(os.Environ(), extraEnv...))
-	// end adapted from
 }
 
 func (dr DefaultRunner) CommandOutputToFile(command string, args []string, outputFile string) error {
