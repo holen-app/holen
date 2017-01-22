@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/kr/pretty"
@@ -280,6 +281,10 @@ func (bs BinaryStrategy) Run(args []string) error {
 	}
 	binName := fmt.Sprintf("%s--%s", bs.Data.Name, bs.Data.Version)
 	localPath := filepath.Join(downloadPath, binName)
+
+	if runtime.GOOS == "windows" {
+		localPath = fmt.Sprintf("%s.exe", localPath)
+	}
 
 	if !bs.FileExists(localPath) {
 		var binPath, sumPath string
