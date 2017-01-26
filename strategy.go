@@ -51,11 +51,20 @@ func (sc *StrategyCommon) CommonTemplateValues(version string, osArchData map[st
 	sc.Debugf("templater: %# v", pretty.Formatter(temp))
 
 	var err error
+	var newVal string
 	for key, val := range values {
-		values[key], err = temp.Template(val)
-		if err != nil {
-			return values, errors.Wrap(err, fmt.Sprintf("unable to template %s", key))
+		prev := ""
+		for prev != val {
+			sc.Debugf("template: %s", val)
+			newVal, err = temp.Template(val)
+			if err != nil {
+				return values, errors.Wrap(err, fmt.Sprintf("unable to template %s (%s)", key, val))
+			}
+
+			prev = val
+			val = newVal
 		}
+		values[key] = val
 	}
 	return values, nil
 }
