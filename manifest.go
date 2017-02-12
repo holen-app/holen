@@ -16,8 +16,8 @@ import (
 type ManifestFinder interface {
 	Find(NameVer) (*Manifest, error)
 	List(string, bool) error
-	LinkAllUtilities(string, string) error
-	LinkSingleUtility(string, string, string) error
+	LinkAllUtilities(string, string, string) error
+	LinkSingleUtility(string, string, string, string) error
 	DefaultLinkBinPath() string
 }
 
@@ -157,12 +157,12 @@ func (dmf DefaultManifestFinder) eachManifestPath(manifestPath string, callback 
 	return nil
 }
 
-func (dmf DefaultManifestFinder) LinkAllUtilities(source, binPath string) error {
-	return dmf.linkUtilities(true, "", source, binPath)
+func (dmf DefaultManifestFinder) LinkAllUtilities(linkType, source, binPath string) error {
+	return dmf.linkUtilities(true, linkType, "", source, binPath)
 }
 
-func (dmf DefaultManifestFinder) LinkSingleUtility(name, source, binPath string) error {
-	return dmf.linkUtilities(false, name, source, binPath)
+func (dmf DefaultManifestFinder) LinkSingleUtility(linkType, name, source, binPath string) error {
+	return dmf.linkUtilities(false, linkType, name, source, binPath)
 }
 
 func (dmf DefaultManifestFinder) DefaultLinkBinPath() string {
@@ -185,7 +185,7 @@ func (dmf DefaultManifestFinder) DefaultLinkBinPath() string {
 	return ""
 }
 
-func (dmf DefaultManifestFinder) linkUtilities(all bool, name, source, binPath string) error {
+func (dmf DefaultManifestFinder) linkUtilities(all bool, linkType, name, source, binPath string) error {
 
 	if len(binPath) == 0 {
 		binPath = dmf.DefaultLinkBinPath()
@@ -202,6 +202,24 @@ func (dmf DefaultManifestFinder) linkUtilities(all bool, name, source, binPath s
 		return err
 	}
 
+	if len(linkType) == 0 {
+		configLinkType, err := dmf.Get("link.type")
+		if err == nil && len(configLinkType) > 0 {
+			linkType = configLinkType
+		} else {
+			linkType = "script"
+		}
+	}
+
+	var linker Linker
+	if linkType == "manifest" || linkType == "holen" {
+		linker = &FileLinker{dmf.System, dmf.Logger, dmf.SelfPath, binPath}
+	} else if linkType == "script" {
+		linker = &ScriptLinker{dmf.System, binPath}
+	} else if linkType == "alias" {
+		linker = &AliasLinker{dmf.System}
+	}
+
 	for _, manifestPath := range sourcePaths {
 		manifestPath, _ = filepath.Abs(manifestPath)
 
@@ -216,7 +234,13 @@ func (dmf DefaultManifestFinder) linkUtilities(all bool, name, source, binPath s
 				seenUtilities[name] = true
 				dmf.Debugf(" linking %s", name)
 
-				err := dmf.linkUtility(name, filepath.Join(manifestPath, fileName), binPath)
+				if linkType == "manifest" {
+					if fileLinker, ok := linker.(*FileLinker); ok {
+						fileLinker.Target = filepath.Join(manifestPath, fileName)
+					}
+				}
+
+				err := dmf.linkUtility(linker, name, filepath.Join(manifestPath, fileName))
 
 				if err != nil {
 					return err
@@ -233,8 +257,14 @@ func (dmf DefaultManifestFinder) linkUtilities(all bool, name, source, binPath s
 			dmf.Debugf("trying path %s", tryPath)
 			// TODO: check if manifestPath is executable and warn
 			if dmf.FileExists(tryPath) {
+				if linkType == "manifest" {
+					if fileLinker, ok := linker.(*FileLinker); ok {
+						fileLinker.Target = tryPath
+					}
+				}
+
 				// link
-				err := dmf.linkUtility(name, tryPath, binPath)
+				err := dmf.linkUtility(linker, name, tryPath)
 
 				if err != nil {
 					return err
@@ -246,21 +276,7 @@ func (dmf DefaultManifestFinder) linkUtilities(all bool, name, source, binPath s
 	return nil
 }
 
-func (dmf DefaultManifestFinder) linkUtility(name, manifestPath, binPath string) error {
-	fullBinPath := filepath.Join(binPath, name)
-	dmf.Debugf("  full bin path %s", fullBinPath)
-
-	targetPath, err := filepath.Rel(binPath, manifestPath)
-	if err != nil {
-		return err
-	}
-
-	if strings.HasSuffix(targetPath, manifestPath) {
-		targetPath = manifestPath
-	}
-
-	dmf.Debugf("  target path %s", targetPath)
-
+func (dmf DefaultManifestFinder) linkUtility(linker Linker, name, manifestPath string) error {
 	// load up the manifest
 	manifest, err := LoadManifest(ParseName(name), manifestPath, dmf.ConfigGetter, dmf.Logger, dmf.System)
 	if err != nil {
@@ -274,32 +290,14 @@ func (dmf DefaultManifestFinder) linkUtility(name, manifestPath, binPath string)
 
 	// link all found versions
 	for _, strategy := range strategies {
-		err = dmf.linkToManifest(targetPath, fmt.Sprintf("%s--%s", fullBinPath, strategy.Version()))
+		err = linker.Link(name, strategy.Version())
 		if err != nil {
 			return err
 		}
 	}
 
 	// link utility without version number
-	return dmf.linkToManifest(targetPath, fullBinPath)
-}
-
-func (dmf DefaultManifestFinder) linkToManifest(targetPath, fullBinPath string) error {
-
-	dmf.Debugf("linking %s to %s", targetPath, fullBinPath)
-	fileStat, err := os.Lstat(fullBinPath)
-	if err == nil && fileStat.Mode()&os.ModeSymlink != 0 {
-		// TODO: only remove symlinks that point at holen manifests
-		os.Remove(fullBinPath)
-	}
-
-	// symlink to holen
-	err = os.Symlink(targetPath, fullBinPath)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return linker.Link(name, "")
 }
 
 // TODO: see if this can be made a method attached to ManifestFinder

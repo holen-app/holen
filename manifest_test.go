@@ -312,7 +312,7 @@ func TestLink(t *testing.T) {
 		{
 			func(tu *TestManifestUtils, mf ManifestFinder, binPath string) error {
 				tu.MemSystem.Files[fmt.Sprintf(path.Join(manifestsPath, "util1.yaml"))] = true
-				return mf.LinkSingleUtility("util1", "", binPath)
+				return mf.LinkSingleUtility("holen", "util1", "", binPath)
 			},
 			nil,
 			[]string{"util1", "util1--1.4", "util1--1.5", "util1--1.6"},
@@ -320,7 +320,7 @@ func TestLink(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		tu, manifestFinder := newTestManifestFinder("")
+		tu, manifestFinder := newTestManifestFinder(path.Join(wd, "testdata", "link", "holen"))
 
 		var err error
 		tempdir, _ := ioutil.TempDir("", "link")
@@ -343,9 +343,9 @@ func TestLink(t *testing.T) {
 			for i, info := range files {
 				fileNames[i] = info.Name()
 
-				// target, err := os.Readlink(path.Join(tempdir, info.Name()))
-				// assert.Nil(err)
-				// assert.Equal(target, test.target)
+				target, err := os.Readlink(path.Join(tempdir, info.Name()))
+				assert.Nil(err)
+				assert.Equal(target, path.Join(wd, "testdata", "link", "holen"))
 			}
 
 			// fmt.Println(fileNames)
