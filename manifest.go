@@ -196,7 +196,6 @@ func (dmf DefaultManifestFinder) linkUtilities(all bool, linkType, name, source,
 	if err != nil {
 		return err
 	}
-	dmf.Stdoutf("link path: %s\n", binPath)
 
 	// TODO: should we create binPath if non-exist?
 	binPath, _ = filepath.Abs(binPath)
