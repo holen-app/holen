@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/kr/pretty"
+	homedir "github.com/mitchellh/go-homedir"
 	"github.com/pkg/errors"
 	yaml "gopkg.in/yaml.v2"
 )
@@ -190,6 +191,12 @@ func (dmf DefaultManifestFinder) linkUtilities(all bool, linkType, name, source,
 	if len(binPath) == 0 {
 		binPath = dmf.DefaultLinkBinPath()
 	}
+
+	binPath, err := homedir.Expand(binPath)
+	if err != nil {
+		return err
+	}
+	dmf.Stdoutf("link path: %s\n", binPath)
 
 	// TODO: should we create binPath if non-exist?
 	binPath, _ = filepath.Abs(binPath)
