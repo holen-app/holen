@@ -17,8 +17,8 @@ import (
 type ManifestFinder interface {
 	Find(NameVer) (*Manifest, error)
 	List(string, bool) error
-	LinkAllUtilities(string, string, string) error
-	LinkSingleUtility(string, string, string, string) error
+	LinkAllUtilities(string, string, string, bool) error
+	LinkSingleUtility(string, string, string, string, bool) error
 	DefaultLinkBinPath() string
 }
 
@@ -158,12 +158,12 @@ func (dmf DefaultManifestFinder) eachManifestPath(manifestPath string, callback 
 	return nil
 }
 
-func (dmf DefaultManifestFinder) LinkAllUtilities(linkType, source, binPath string) error {
-	return dmf.linkUtilities(true, linkType, "", source, binPath)
+func (dmf DefaultManifestFinder) LinkAllUtilities(linkType, source, binPath string, onlyLatest bool) error {
+	return dmf.linkUtilities(true, linkType, "", source, binPath, onlyLatest)
 }
 
-func (dmf DefaultManifestFinder) LinkSingleUtility(linkType, name, source, binPath string) error {
-	return dmf.linkUtilities(false, linkType, name, source, binPath)
+func (dmf DefaultManifestFinder) LinkSingleUtility(linkType, name, source, binPath string, onlyLatest bool) error {
+	return dmf.linkUtilities(false, linkType, name, source, binPath, onlyLatest)
 }
 
 func (dmf DefaultManifestFinder) DefaultLinkBinPath() string {
@@ -186,7 +186,7 @@ func (dmf DefaultManifestFinder) DefaultLinkBinPath() string {
 	return ""
 }
 
-func (dmf DefaultManifestFinder) linkUtilities(all bool, linkType, name, source, binPath string) error {
+func (dmf DefaultManifestFinder) linkUtilities(all bool, linkType, name, source, binPath string, onlyLatest bool) error {
 
 	if len(binPath) == 0 {
 		binPath = dmf.DefaultLinkBinPath()
@@ -215,6 +215,10 @@ func (dmf DefaultManifestFinder) linkUtilities(all bool, linkType, name, source,
 		} else {
 			linkType = "script"
 		}
+	}
+
+	if configOnlyLatest, err := dmf.Get("link.only_latest"); err == nil && configOnlyLatest == "true" {
+		onlyLatest = true
 	}
 
 	var linker Linker
@@ -247,7 +251,7 @@ func (dmf DefaultManifestFinder) linkUtilities(all bool, linkType, name, source,
 					}
 				}
 
-				err := dmf.linkUtility(linker, name, filepath.Join(manifestPath, fileName))
+				err := dmf.linkUtility(linker, name, filepath.Join(manifestPath, fileName), onlyLatest)
 
 				if err != nil {
 					return err
@@ -271,7 +275,7 @@ func (dmf DefaultManifestFinder) linkUtilities(all bool, linkType, name, source,
 				}
 
 				// link
-				err := dmf.linkUtility(linker, name, tryPath)
+				err := dmf.linkUtility(linker, name, tryPath, onlyLatest)
 
 				if err != nil {
 					return err
@@ -287,23 +291,26 @@ func (dmf DefaultManifestFinder) linkUtilities(all bool, linkType, name, source,
 	return nil
 }
 
-func (dmf DefaultManifestFinder) linkUtility(linker Linker, name, manifestPath string) error {
-	// load up the manifest
-	manifest, err := LoadManifest(ParseName(name), manifestPath, dmf.ConfigGetter, dmf.Logger, dmf.System)
-	if err != nil {
-		return err
-	}
+func (dmf DefaultManifestFinder) linkUtility(linker Linker, name, manifestPath string, onlyLatest bool) error {
 
-	strategies, err := manifest.LoadAllStrategies(ParseName(name))
-	if err != nil {
-		return err
-	}
-
-	// link all found versions
-	for _, strategy := range strategies {
-		err = linker.Link(name, strategy.Version())
+	if !onlyLatest {
+		// load up the manifest
+		manifest, err := LoadManifest(ParseName(name), manifestPath, dmf.ConfigGetter, dmf.Logger, dmf.System)
 		if err != nil {
 			return err
+		}
+
+		strategies, err := manifest.LoadAllStrategies(ParseName(name))
+		if err != nil {
+			return err
+		}
+
+		// link all found versions
+		for _, strategy := range strategies {
+			err = linker.Link(name, strategy.Version())
+			if err != nil {
+				return err
+			}
 		}
 	}
 
