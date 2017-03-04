@@ -226,6 +226,7 @@ func (dmf DefaultManifestFinder) linkUtilities(all bool, linkType, name, source,
 		linker = &AliasLinker{dmf.System}
 	}
 
+	linkedSingle := false
 	for _, manifestPath := range sourcePaths {
 		manifestPath, _ = filepath.Abs(manifestPath)
 
@@ -275,9 +276,13 @@ func (dmf DefaultManifestFinder) linkUtilities(all bool, linkType, name, source,
 				if err != nil {
 					return err
 				}
-				return nil
+				linkedSingle = true
 			}
 		}
+	}
+
+	if !all && !linkedSingle {
+		return fmt.Errorf("unable to find %s", name)
 	}
 	return nil
 }
