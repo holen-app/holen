@@ -30,7 +30,7 @@ type DefaultManifestFinder struct {
 	SelfPath string
 }
 
-func NewManifestFinder() (*DefaultManifestFinder, error) {
+func NewManifestFinder(bootstrap bool) (*DefaultManifestFinder, error) {
 	selfPath, err := findSelfPath()
 	if err != nil {
 		return nil, err
@@ -45,6 +45,13 @@ func NewManifestFinder() (*DefaultManifestFinder, error) {
 	sourceManager, err := NewDefaultSourceManager()
 	if err != nil {
 		return nil, err
+	}
+
+	if bootstrap {
+		err = sourceManager.Bootstrap()
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return &DefaultManifestFinder{

@@ -14,7 +14,7 @@ var runCommand RunCommand
 
 // Runing utilities
 func (x *RunCommand) Execute(args []string) error {
-	manifestFinder, err := NewManifestFinder()
+	manifestFinder, err := NewManifestFinder(true)
 	if err != nil {
 		return err
 	}

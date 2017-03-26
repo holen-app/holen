@@ -18,13 +18,14 @@ type SourceManager interface {
 	List() error
 	Update(string) error
 	Delete(bool, string) error
+	Bootstrap() error
 }
 
 type Source interface {
 	Name() string
 	Spec() string
 	Info() string
-	Update(string) error
+	Update(string, bool) error
 	Delete(string) error
 }
 
@@ -66,17 +67,20 @@ func (gs GitSource) Info() string {
 	return fmt.Sprintf("git source: %s", gs.fullUrl())
 }
 
-func (gs GitSource) Update(base string) error {
+func (gs GitSource) Update(base string, createOnly bool) error {
 
 	clonePath := filepath.Join(base, gs.name)
 
-	if gs.FileExists(clonePath) {
+	if !gs.FileExists(clonePath) {
+		return gs.RunCommand("git", []string{"clone", gs.fullUrl(), clonePath})
+	} else if !createOnly {
 		wd, _ := os.Getwd()
 		os.Chdir(clonePath)
 		defer os.Chdir(wd)
 		return gs.RunCommand("git", []string{"pull"})
 	}
-	return gs.RunCommand("git", []string{"clone", gs.fullUrl(), clonePath})
+
+	return nil
 }
 
 func (gs GitSource) Delete(base string) error {
@@ -176,7 +180,7 @@ func (rsm RealSourceManager) Update(name string) error {
 	for _, source := range sources {
 		// rsm.Stdoutf("%s: %s (%s)\n", source.Name(), source.Spec(), source.Info())
 		if len(name) == 0 || name == source.Name() {
-			source.Update(manifestsPath)
+			source.Update(manifestsPath, false)
 		}
 	}
 
@@ -239,6 +243,26 @@ func (rsm RealSourceManager) Paths(name string) ([]string, error) {
 		}
 	}
 	return paths, nil
+}
+
+// Bootstrap only updates those sources that don't exist.  This is suitable to
+// be called by every CLI to make sure the manifests are present.
+func (rsm RealSourceManager) Bootstrap() error {
+	sources, err := rsm.getSources()
+	if err != nil {
+		return err
+	}
+
+	manifestsPath, err := rsm.manifestsPath()
+	if err != nil {
+		return err
+	}
+
+	for _, source := range sources {
+		source.Update(manifestsPath, true)
+	}
+
+	return nil
 }
 
 func NewDefaultSourceManager() (*RealSourceManager, error) {

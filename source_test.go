@@ -87,7 +87,7 @@ func TestGitSourceUpdate(t *testing.T) {
 		tu, gs := newTestGitSource("test", "test/repo")
 
 		test.mod(tu.MemSystem)
-		assert.Nil(gs.Update(baseDir))
+		assert.Nil(gs.Update(baseDir, false))
 		assert.Equal([]string{test.cmd}, tu.MemRunner.History)
 	}
 }

@@ -31,7 +31,7 @@ func runInspect(inspectCommand InspectCommand, conf ConfigGetter, logger Logger,
 
 	var manifest *Manifest
 	if len(inspectCommand.Manifest) == 0 {
-		manifestFinder, err := NewManifestFinder()
+		manifestFinder, err := NewManifestFinder(true)
 		if err != nil {
 			return err
 		}
