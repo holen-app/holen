@@ -312,7 +312,7 @@ func TestLink(t *testing.T) {
 		{
 			func(tu *TestManifestUtils, mf ManifestFinder, binPath string) error {
 				tu.MemSystem.Files[fmt.Sprintf(path.Join(manifestsPath, "util1.yaml"))] = true
-				return mf.LinkSingleUtility("holen", "util1", "", binPath)
+				return mf.LinkSingleUtility("holen", "util1", "", binPath, false)
 			},
 			nil,
 			[]string{"util1", "util1--1.4", "util1--1.5", "util1--1.6"},
