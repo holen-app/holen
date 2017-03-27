@@ -187,3 +187,93 @@ func TestSourceManagerPaths(t *testing.T) {
 	assert.NotNil(err)
 	assert.Contains(err.Error(), "not found")
 }
+
+func TestSourceManagerBootstrap(t *testing.T) {
+	assert := assert.New(t)
+
+	tempdir, _ := ioutil.TempDir("", "paths")
+	defer os.RemoveAll(tempdir)
+
+	var testCases = []struct {
+		mod func(*MemSystem)
+		cmd []string
+	}{
+		{
+			func(ms *MemSystem) {
+				return
+			},
+			[]string{fmt.Sprintf("git clone https://github.com/holen-app/manifests.git %s/.local/share/holen/manifests/main", tempdir)},
+		},
+		{
+			func(ms *MemSystem) {
+				ms.Files[fmt.Sprintf("%s/.local/share/holen/manifests/main", tempdir)] = true
+			},
+			nil,
+		},
+	}
+
+	for _, test := range testCases {
+		tu, sm := newTestSourceManager()
+		tu.MemSystem.Setenv("HOME", tempdir)
+
+		test.mod(tu.MemSystem)
+		assert.Nil(sm.Bootstrap())
+		assert.Equal(test.cmd, tu.MemRunner.History)
+	}
+}
+
+func TestSourceManagerUpdate(t *testing.T) {
+	assert := assert.New(t)
+
+	tempdir, _ := ioutil.TempDir("", "paths")
+	defer os.RemoveAll(tempdir)
+
+	var testCases = []struct {
+		mod func(*MemSystem)
+		cmd []string
+	}{
+		{
+			func(ms *MemSystem) {
+				return
+			},
+			[]string{
+				fmt.Sprintf("git clone https://github.com/test/repo.git %s/.local/share/holen/manifests/test", tempdir),
+				fmt.Sprintf("git clone https://github.com/holen-app/manifests.git %s/.local/share/holen/manifests/main", tempdir),
+			},
+		},
+		{
+			func(ms *MemSystem) {
+				ms.Files[fmt.Sprintf("%s/.local/share/holen/manifests/main", tempdir)] = true
+			},
+			[]string{
+				fmt.Sprintf("git clone https://github.com/test/repo.git %s/.local/share/holen/manifests/test", tempdir),
+				"git pull",
+			},
+		},
+	}
+
+	for _, test := range testCases {
+		tu, sm := newTestSourceManager()
+		assert.Nil(sm.Add(false, "test", "test/repo"))
+		tu.MemSystem.Setenv("HOME", tempdir)
+
+		test.mod(tu.MemSystem)
+		assert.Nil(sm.Update(""))
+		assert.Equal(test.cmd, tu.MemRunner.History)
+	}
+}
+
+func TestSourceManagerDelete(t *testing.T) {
+	assert := assert.New(t)
+	tu, sm := newTestSourceManager()
+
+	assert.Nil(sm.Add(false, "test", "test/repo"))
+	assert.Equal(tu.MemConfig.UserConfig, map[string]string{"source.test": "test/repo"})
+
+	assert.Nil(sm.Delete(false, "test"))
+	assert.Equal(tu.MemConfig.UserConfig, map[string]string{})
+
+	err := sm.Delete(false, "test")
+	assert.NotNil(err)
+	assert.Equal(err.Error(), "source test not found")
+}
