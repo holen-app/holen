@@ -138,13 +138,21 @@ func NewDefaultConfigClient(system System) (*RealConfigClient, error) {
 		systemHome = holenSystemEnv
 	}
 
-	systemConfigPath, err := filepath.EvalSymlinks(filepath.Join(systemHome, "holenconfig"))
-	if err != nil {
-		return nil, err
+	var err error
+	systemConfigPath := filepath.Join(systemHome, "holenconfig")
+	if system.FileExists(systemConfigPath) {
+		systemConfigPath, err = filepath.EvalSymlinks(systemConfigPath)
+		if err != nil {
+			return nil, err
+		}
 	}
-	userConfigPath, err := filepath.EvalSymlinks(filepath.Join(baseDir, "config"))
-	if err != nil {
-		return nil, err
+
+	userConfigPath := filepath.Join(baseDir, "config")
+	if system.FileExists(userConfigPath) {
+		userConfigPath, err = filepath.EvalSymlinks(userConfigPath)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	configClient := RealConfigClient{
