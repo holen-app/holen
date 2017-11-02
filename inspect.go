@@ -1,9 +1,6 @@
 package main
 
-import (
-	"fmt"
-	"os"
-)
+import "fmt"
 
 // InspectCommand specifies options for the inspect subcommand.
 type InspectCommand struct {
@@ -34,13 +31,7 @@ func runInspect(inspectCommand InspectCommand, conf ConfigGetter, logger Logger,
 
 	var manifest *Manifest
 	if len(inspectCommand.Manifest) == 0 {
-		selfPath, err := findSelfPath()
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-
-		manifestFinder, err := NewManifestFinder(selfPath, conf, logger, system)
+		manifestFinder, err := NewManifestFinder(true)
 		if err != nil {
 			return err
 		}

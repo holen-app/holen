@@ -4,36 +4,61 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path"
 	"path/filepath"
 	"sort"
 	"strings"
 
 	"github.com/kr/pretty"
+	homedir "github.com/mitchellh/go-homedir"
 	"github.com/pkg/errors"
 	yaml "gopkg.in/yaml.v2"
 )
 
 type ManifestFinder interface {
 	Find(NameVer) (*Manifest, error)
-	List() error
-	LinkAll(string, string) error
-	LinkSingle(string, string, string) error
-	LinkMultiple([]string, string, string) error
+	List(string, bool) error
+	LinkAllUtilities(string, string, string, bool) error
+	LinkSingleUtility(string, string, string, string, bool) error
+	DefaultLinkBinPath() string
 }
 
 type DefaultManifestFinder struct {
 	Logger
 	ConfigGetter
 	System
+	SourcePather
 	SelfPath string
 }
 
-func NewManifestFinder(selfPath string, conf ConfigGetter, logger Logger, system System) (*DefaultManifestFinder, error) {
+func NewManifestFinder(bootstrap bool) (*DefaultManifestFinder, error) {
+	selfPath, err := findSelfPath()
+	if err != nil {
+		return nil, err
+	}
+
+	system := &DefaultSystem{}
+	conf, err := NewDefaultConfigClient(system)
+	if err != nil {
+		return nil, err
+	}
+
+	sourceManager, err := NewDefaultSourceManager()
+	if err != nil {
+		return nil, err
+	}
+
+	if bootstrap {
+		err = sourceManager.Bootstrap()
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return &DefaultManifestFinder{
-		Logger:       logger,
+		Logger:       &LogrusLogger{},
 		ConfigGetter: conf,
 		System:       system,
+		SourcePather: sourceManager,
 		SelfPath:     selfPath,
 	}, nil
 }
@@ -41,9 +66,14 @@ func NewManifestFinder(selfPath string, conf ConfigGetter, logger Logger, system
 func (dmf DefaultManifestFinder) Find(utility NameVer) (*Manifest, error) {
 
 	var manifestPath string
-	for _, p := range dmf.Paths() {
+	sourcePaths, err := dmf.Paths("")
+	if err != nil {
+		return nil, err
+	}
 
-		tryPath := path.Join(p, fmt.Sprintf("%s.yaml", utility.Name))
+	for _, p := range sourcePaths {
+
+		tryPath := filepath.Join(p, fmt.Sprintf("%s.yaml", utility.Name))
 		dmf.Debugf("trying: %s", tryPath)
 		if _, err := os.Stat(tryPath); err == nil {
 			dmf.Debugf("found manifest: %s", tryPath)
@@ -59,37 +89,32 @@ func (dmf DefaultManifestFinder) Find(utility NameVer) (*Manifest, error) {
 	return LoadManifest(utility, manifestPath, dmf.ConfigGetter, dmf.Logger, dmf.System)
 }
 
-func (dmf DefaultManifestFinder) Paths() []string {
-
-	var paths []string
-
-	holenPath := dmf.Getenv("HLN_PATH")
-	if len(holenPath) > 0 {
-		paths = append(paths, strings.Split(holenPath, ":")...)
-	}
-
-	configHolenPath, err := dmf.Get("manifest.path")
-	if err == nil && len(configHolenPath) > 0 {
-		paths = append(paths, strings.Split(configHolenPath, ":")...)
-	}
-
-	holenPathPost := dmf.Getenv("HLN_PATH_POST")
-	if len(holenPathPost) > 0 {
-		paths = append(paths, strings.Split(holenPathPost, ":")...)
-	}
-
-	paths = append(paths, path.Join(path.Dir(dmf.SelfPath), "manifests"))
-
-	dmf.Debugf("all paths: %s", strings.Join(paths, ":"))
-
-	return paths
+type listInfo struct {
+	name, desc string
+	count      int
 }
 
-func (dmf DefaultManifestFinder) List() error {
-	utilityInfo := make(map[string]int)
-	for _, p := range dmf.Paths() {
+func (dmf DefaultManifestFinder) List(source string, desc bool) error {
+	utilityInfo := make(map[string]*listInfo)
+
+	sourcePaths, err := dmf.Paths(source)
+	if err != nil {
+		return err
+	}
+
+	for _, p := range sourcePaths {
 		dmf.eachManifestPath(p, func(name, fileName string) error {
-			utilityInfo[name]++
+			if info, ok := utilityInfo[name]; !ok {
+				info := &listInfo{name, "", 1}
+				man, err := LoadManifest(ParseName(name), filepath.Join(p, fileName), dmf.ConfigGetter, dmf.Logger, dmf.System)
+				if err == nil {
+					info.desc = man.Data.Desc
+				}
+				utilityInfo[name] = info
+			} else {
+				info.count++
+			}
+
 			return nil
 		})
 	}
@@ -107,7 +132,11 @@ func (dmf DefaultManifestFinder) List() error {
 	sort.Strings(utilityNames)
 
 	for _, name := range utilityNames {
-		dmf.Stdoutf("%v\n", name)
+		if desc {
+			dmf.Stdoutf("%s: %s\n", name, utilityInfo[name].desc)
+		} else {
+			dmf.Stdoutf("%s\n", name)
+		}
 	}
 
 	return nil
@@ -136,115 +165,164 @@ func (dmf DefaultManifestFinder) eachManifestPath(manifestPath string, callback 
 	return nil
 }
 
-func (dmf DefaultManifestFinder) LinkAll(holenPath, binPath string) error {
-	return dmf.linkPaths(dmf.Paths(), holenPath, binPath)
+func (dmf DefaultManifestFinder) LinkAllUtilities(linkType, source, binPath string, onlyLatest bool) error {
+	return dmf.linkUtilities(true, linkType, "", source, binPath, onlyLatest)
 }
 
-func (dmf DefaultManifestFinder) LinkMultiple(paths []string, holenPath, binPath string) error {
-	return dmf.linkPaths(paths, holenPath, binPath)
+func (dmf DefaultManifestFinder) LinkSingleUtility(linkType, name, source, binPath string, onlyLatest bool) error {
+	return dmf.linkUtilities(false, linkType, name, source, binPath, onlyLatest)
 }
 
-func (dmf DefaultManifestFinder) LinkSingle(manifestPath, holenPath, binPath string) error {
-	return dmf.linkPaths([]string{manifestPath}, holenPath, binPath)
+func (dmf DefaultManifestFinder) DefaultLinkBinPath() string {
+
+	envPath := dmf.Getenv("HLN_LINK_BIN_PATH")
+	if len(envPath) > 0 {
+		return envPath
+	}
+
+	configPath, err := dmf.Get("link.bin_path")
+	if err == nil && len(configPath) > 0 {
+		return configPath
+	}
+
+	homePath := dmf.Getenv("HOME")
+	if len(homePath) > 0 {
+		return filepath.Join(homePath, "bin")
+	}
+
+	return ""
 }
 
-func (dmf DefaultManifestFinder) linkPaths(paths []string, holenPath, binPath string) error {
+func (dmf DefaultManifestFinder) linkUtilities(all bool, linkType, name, source, binPath string, onlyLatest bool) error {
+
+	if len(binPath) == 0 {
+		binPath = dmf.DefaultLinkBinPath()
+	}
+
+	binPath, err := homedir.Expand(binPath)
+	if err != nil {
+		return err
+	}
 
 	// TODO: should we create binPath if non-exist?
 	binPath, _ = filepath.Abs(binPath)
 	binPath, _ = filepath.EvalSymlinks(binPath)
 
-	if len(holenPath) == 0 {
-		holenPath = dmf.SelfPath
-	}
-	holenPath, _ = filepath.Abs(holenPath)
-	// TODO: figure out if this eval is necessary or not:
-	// holenPath, _ = filepath.EvalSymlinks(holenPath)
-
 	seenUtilities := make(map[string]bool)
 
-	for _, manifestPath := range paths {
-		manifestPath, _ = filepath.Abs(manifestPath)
-
-		dmf.Debugf("linking from utilities found in %s to %s in %s", manifestPath, holenPath, binPath)
-
-		err := dmf.eachManifestPath(manifestPath, func(name, fileName string) error {
-			_, ok := seenUtilities[name]
-			if ok {
-				dmf.Debugf(" seen %s already, skipping", name)
-				return nil
-			}
-			seenUtilities[name] = true
-			dmf.Debugf(" linking %s", name)
-
-			fullBinPath := filepath.Join(binPath, name)
-			dmf.Debugf("  full bin path %s", fullBinPath)
-
-			targetPath, err := filepath.Rel(binPath, holenPath)
-			if err != nil {
-				return err
-			}
-
-			if strings.HasSuffix(targetPath, holenPath) {
-				targetPath = holenPath
-			}
-
-			dmf.Debugf("  target path %s", targetPath)
-
-			// load up the manifest
-			manifest, err := LoadManifest(ParseName(name), filepath.Join(manifestPath, fileName), dmf.ConfigGetter, dmf.Logger, dmf.System)
-			if err != nil {
-				return err
-			}
-
-			strategies, err := manifest.LoadAllStrategies(ParseName(name))
-			if err != nil {
-				return err
-			}
-
-			// link all found versions
-			for _, strategy := range strategies {
-				err = dmf.linkToHolen(targetPath, fmt.Sprintf("%s--%s", fullBinPath, strategy.Version()))
-				if err != nil {
-					return err
-				}
-			}
-
-			// link utility without version number
-			return dmf.linkToHolen(targetPath, fullBinPath)
-		})
-
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (dmf DefaultManifestFinder) linkToHolen(targetPath, fullBinPath string) error {
-
-	// if target exists and points to something with 'holen' at the end, remove it
-	fileStat, err := os.Lstat(fullBinPath)
-	if err == nil && fileStat.Mode()&os.ModeSymlink != 0 {
-		target, err := os.Readlink(fullBinPath)
-		if err != nil {
-			return err
-		}
-		if path.Base(target) == "holen" {
-			os.Remove(fullBinPath)
-		} else {
-			return fmt.Errorf("symlink %s already exists and points at non-holen target", fullBinPath)
-		}
-	}
-
-	// symlink to holen
-	err = os.Symlink(targetPath, fullBinPath)
+	sourcePaths, err := dmf.Paths(source)
 	if err != nil {
 		return err
 	}
 
+	if len(linkType) == 0 {
+		configLinkType, err := dmf.Get("link.type")
+		if err == nil && len(configLinkType) > 0 {
+			linkType = configLinkType
+		} else {
+			linkType = "script"
+		}
+	}
+
+	if configOnlyLatest, err := dmf.Get("link.only_latest"); err == nil && configOnlyLatest == "true" {
+		onlyLatest = true
+	}
+
+	var linker Linker
+	if linkType == "manifest" || linkType == "holen" {
+		linker = &FileLinker{dmf.System, dmf.Logger, dmf.SelfPath, binPath}
+	} else if linkType == "script" {
+		linker = &ScriptLinker{dmf.System, binPath}
+	} else if linkType == "alias" {
+		linker = &AliasLinker{dmf.System}
+	}
+
+	linkedSingle := false
+	for _, manifestPath := range sourcePaths {
+		manifestPath, _ = filepath.Abs(manifestPath)
+
+		if all {
+			dmf.Debugf("linking all utilities found in %s in %s", manifestPath, binPath)
+			err := dmf.eachManifestPath(manifestPath, func(name, fileName string) error {
+				_, ok := seenUtilities[name]
+				if ok {
+					dmf.Debugf(" seen %s already, skipping", name)
+					return nil
+				}
+				seenUtilities[name] = true
+				dmf.Debugf(" linking %s", name)
+
+				if linkType == "manifest" {
+					if fileLinker, ok := linker.(*FileLinker); ok {
+						fileLinker.Target = filepath.Join(manifestPath, fileName)
+					}
+				}
+
+				err := dmf.linkUtility(linker, name, filepath.Join(manifestPath, fileName), onlyLatest)
+
+				if err != nil {
+					return err
+				}
+
+				return nil
+			})
+
+			if err != nil {
+				return err
+			}
+		} else {
+			tryPath := filepath.Join(manifestPath, fmt.Sprintf("%s.yaml", name))
+			dmf.Debugf("trying path %s", tryPath)
+			// TODO: check if manifestPath is executable and warn
+			if dmf.FileExists(tryPath) {
+				if linkType == "manifest" {
+					if fileLinker, ok := linker.(*FileLinker); ok {
+						fileLinker.Target = tryPath
+					}
+				}
+
+				// link
+				err := dmf.linkUtility(linker, name, tryPath, onlyLatest)
+
+				if err != nil {
+					return err
+				}
+				linkedSingle = true
+			}
+		}
+	}
+
+	if !all && !linkedSingle {
+		return fmt.Errorf("unable to find %s", name)
+	}
 	return nil
+}
+
+func (dmf DefaultManifestFinder) linkUtility(linker Linker, name, manifestPath string, onlyLatest bool) error {
+
+	if !onlyLatest {
+		// load up the manifest
+		manifest, err := LoadManifest(ParseName(name), manifestPath, dmf.ConfigGetter, dmf.Logger, dmf.System)
+		if err != nil {
+			return err
+		}
+
+		strategies, err := manifest.LoadAllStrategies(ParseName(name))
+		if err != nil {
+			return err
+		}
+
+		// link all found versions
+		for _, strategy := range strategies {
+			err = linker.Link(name, strategy.Version())
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	// link utility without version number
+	return linker.Link(name, "")
 }
 
 // TODO: see if this can be made a method attached to ManifestFinder
@@ -449,6 +527,8 @@ func (m *Manifest) loadStrategy(strategyType string, strategyData map[interface{
 		image, imageOk := strategyData["image"]
 		mountPwdAs, mountPwdAsOk := strategyData["mount_pwd_as"]
 		runAsUser, runAsUserOk := strategyData["run_as_user"]
+		pwdWorkdir, pwdWorkdirOk := strategyData["pwd_workdir"]
+		bootstrapScript, bootstrapScriptOk := strategyData["bootstrap_script"]
 
 		if !imageOk {
 			return dummy, errors.New("At least 'image' needed for docker strategy to work")
@@ -460,22 +540,27 @@ func (m *Manifest) loadStrategy(strategyType string, strategyData map[interface{
 		if !mountPwdAsOk {
 			mountPwdAs = ""
 		}
+		if !bootstrapScriptOk {
+			bootstrapScript = ""
+		}
 
 		return DockerStrategy{
 			StrategyCommon: common,
 			Data: DockerData{
-				Name:        m.Data.Name,
-				Desc:        m.Data.Desc,
-				Version:     strategyData["version"].(string),
-				Image:       image.(string),
-				MountPwd:    mountPwdOk && mountPwd.(bool),
-				DockerConn:  dockerConnOk && dockerConn.(bool),
-				Interactive: !interactiveOk || interactive.(bool),
-				PidHost:     pidHostOk && pidHost.(bool),
-				Terminal:    terminal.(string),
-				MountPwdAs:  mountPwdAs.(string),
-				RunAsUser:   runAsUserOk && runAsUser.(bool),
-				OSArchData:  osArchData,
+				Name:            m.Data.Name,
+				Desc:            m.Data.Desc,
+				Version:         strategyData["version"].(string),
+				Image:           image.(string),
+				MountPwd:        mountPwdOk && mountPwd.(bool),
+				DockerConn:      dockerConnOk && dockerConn.(bool),
+				Interactive:     !interactiveOk || interactive.(bool),
+				PidHost:         pidHostOk && pidHost.(bool),
+				Terminal:        terminal.(string),
+				MountPwdAs:      mountPwdAs.(string),
+				RunAsUser:       runAsUserOk && runAsUser.(bool),
+				PwdWorkdir:      pwdWorkdirOk && pwdWorkdir.(bool),
+				BootstrapScript: bootstrapScript.(string),
+				OSArchData:      osArchData,
 			},
 		}, nil
 	} else if strategyType == "binary" {

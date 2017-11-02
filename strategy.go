@@ -5,8 +5,8 @@ import (
 	"io/ioutil"
 	"net/url"
 	"os"
-	"path"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/kr/pretty"
@@ -51,11 +51,20 @@ func (sc *StrategyCommon) CommonTemplateValues(version string, osArchData map[st
 	sc.Debugf("templater: %# v", pretty.Formatter(temp))
 
 	var err error
+	var newVal string
 	for key, val := range values {
-		values[key], err = temp.Template(val)
-		if err != nil {
-			return values, errors.Wrap(err, fmt.Sprintf("unable to template %s", key))
+		prev := ""
+		for prev != val {
+			sc.Debugf("template: %s", val)
+			newVal, err = temp.Template(val)
+			if err != nil {
+				return values, errors.Wrap(err, fmt.Sprintf("unable to template %s (%s)", key, val))
+			}
+
+			prev = val
+			val = newVal
 		}
+		values[key] = val
 	}
 	return values, nil
 }
@@ -67,18 +76,20 @@ type Strategy interface {
 }
 
 type DockerData struct {
-	Name        string
-	Desc        string
-	Version     string                       `yaml:"version"`
-	Image       string                       `yaml:"image"`
-	MountPwd    bool                         `yaml:"mount_pwd"`
-	MountPwdAs  string                       `yaml:"mount_pwd_as"`
-	DockerConn  bool                         `yaml:"docker_conn"`
-	Interactive bool                         `yaml:"interactive"`
-	Terminal    string                       `yaml:"terminal"`
-	PidHost     bool                         `yaml:"pid_host"`
-	RunAsUser   bool                         `yaml:"run_as_user"`
-	OSArchData  map[string]map[string]string `yaml:"os_arch_map"`
+	Name            string
+	Desc            string
+	Version         string                       `yaml:"version"`
+	Image           string                       `yaml:"image"`
+	MountPwd        bool                         `yaml:"mount_pwd"`
+	MountPwdAs      string                       `yaml:"mount_pwd_as"`
+	DockerConn      bool                         `yaml:"docker_conn"`
+	Interactive     bool                         `yaml:"interactive"`
+	Terminal        string                       `yaml:"terminal"`
+	PidHost         bool                         `yaml:"pid_host"`
+	RunAsUser       bool                         `yaml:"run_as_user"`
+	PwdWorkdir      bool                         `yaml:"pwd_workdir"`
+	BootstrapScript string                       `yaml:"bootstrap_script"`
+	OSArchData      map[string]map[string]string `yaml:"os_arch_map"`
 }
 
 type DockerStrategy struct {
@@ -129,9 +140,38 @@ func (ds DockerStrategy) Run(extraArgs []string) error {
 	// 	return errors.Wrap(err, "can't pull image")
 	// }
 
-	args := ds.GenerateArgs(image, extraArgs)
+	command := "docker"
+	var args []string
+	var extraEnv []string
+	if len(ds.Data.BootstrapScript) > 0 {
+		ds.Debugf("bootstrapping with %s\n", ds.Data.BootstrapScript)
 
-	err = ds.RunCommand("docker", args)
+		args = extraArgs
+
+		// TODO: figure out how to clean up this temp dir
+		//       "defer os.RemoveAll(tempdir)" won't work because we Exec below
+		// TODO: don't put this file in /tmp, some systems have that mounted noexec
+		tempdir, err := ioutil.TempDir("", "holen")
+
+		err = ds.CommandOutputToFile("docker", []string{"run", "--rm", "-i", image, "cat", ds.Data.BootstrapScript}, filepath.Join(tempdir, "execute"))
+		if err != nil {
+			return err
+		}
+
+		// TODO: allow env var name to be overridden
+		extraEnv = append(extraEnv, fmt.Sprintf("DOCKER_IMAGE=%s", image))
+
+		command = filepath.Join(tempdir, "execute")
+
+		err = ds.MakeExecutable(command)
+		if err != nil {
+			return err
+		}
+	} else {
+		args = ds.GenerateArgs(image, extraArgs)
+	}
+
+	err = ds.ExecCommandWithEnv(command, args, extraEnv)
 	if err != nil {
 		return errors.Wrap(err, "can't run image")
 	}
@@ -158,10 +198,16 @@ func (ds DockerStrategy) GenerateArgs(image string, extraArgs []string) []string
 	if len(ds.Data.MountPwdAs) > 0 {
 		wd, _ := os.Getwd()
 		args = append(args, "--volume", fmt.Sprintf("%s:%s", wd, ds.Data.MountPwdAs))
+		if ds.Data.PwdWorkdir {
+			args = append(args, "--workdir", ds.Data.MountPwdAs)
+		}
 	}
 	if ds.Data.MountPwd {
 		wd, _ := os.Getwd()
 		args = append(args, "--volume", fmt.Sprintf("%s:%s", wd, wd))
+		if ds.Data.PwdWorkdir {
+			args = append(args, "--workdir", wd)
+		}
 	}
 	if ds.Data.RunAsUser {
 		args = append(args, "-u", fmt.Sprintf("%d:%d", ds.UID(), ds.GID()))
@@ -193,30 +239,12 @@ func (ds DockerStrategy) Inspect() error {
 	return nil
 }
 
-func (bs BinaryStrategy) localHolenPath() (string, error) {
-	var holenPath string
-	if configDataPath, err := bs.Get("holen.datapath"); err == nil && len(configDataPath) > 0 {
-		holenPath = configDataPath
-	} else if xdgDataHome := bs.Getenv("XDG_DATA_HOME"); len(xdgDataHome) > 0 {
-		holenPath = filepath.Join(xdgDataHome, "holen")
-	} else {
-		var home string
-		if home = bs.Getenv("HOME"); len(home) == 0 {
-			return "", fmt.Errorf("$HOME environment variable not found")
-		}
-		holenPath = filepath.Join(home, ".local", "share", "holen")
-	}
-	os.MkdirAll(holenPath, 0755)
-
-	return holenPath, nil
-}
-
 func (bs BinaryStrategy) DownloadPath() (string, error) {
 	var downloadPath string
 	if configDownloadPath, err := bs.Get("binary.download"); err == nil && len(configDownloadPath) > 0 {
 		downloadPath = configDownloadPath
 	} else {
-		holenPath, err := bs.localHolenPath()
+		holenPath, err := bs.DataPath()
 		if err != nil {
 			return "", errors.Wrap(err, "unable to get holen data path")
 		}
@@ -230,7 +258,7 @@ func (bs BinaryStrategy) DownloadPath() (string, error) {
 func (bs BinaryStrategy) TempPath() (string, error) {
 	var tempPath string
 
-	holenPath, err := bs.localHolenPath()
+	holenPath, err := bs.DataPath()
 	if err != nil {
 		return "", errors.Wrap(err, "unable to get holen data path")
 	}
@@ -263,6 +291,10 @@ func (bs BinaryStrategy) Run(args []string) error {
 	binName := fmt.Sprintf("%s--%s", bs.Data.Name, bs.Data.Version)
 	localPath := filepath.Join(downloadPath, binName)
 
+	if runtime.GOOS == "windows" {
+		localPath = fmt.Sprintf("%s.exe", localPath)
+	}
+
 	if !bs.FileExists(localPath) {
 		var binPath, sumPath string
 
@@ -278,7 +310,7 @@ func (bs BinaryStrategy) Run(args []string) error {
 				return errors.Wrap(err, "unable to parse url")
 			}
 
-			fileName := path.Base(u.Path)
+			fileName := filepath.Base(u.Path)
 			archPath := filepath.Join(tempdir, fileName)
 			unpackedPath := filepath.Join(tempdir, "unpacked")
 
@@ -331,7 +363,7 @@ func (bs BinaryStrategy) Run(args []string) error {
 
 	// TODO: add option to re-checksum the binary
 
-	err = bs.RunCommand(localPath, args)
+	err = bs.ExecCommand(localPath, args)
 	if err != nil {
 		return errors.Wrap(err, "can't run binary")
 	}
@@ -440,7 +472,7 @@ func (cs CmdioStrategy) Run(args []string) error {
 		return err
 	}
 
-	err = cs.RunCommand("ssh", append([]string{"alpha.cmd.io", templated["Command"]}, args...))
+	err = cs.ExecCommand("ssh", append([]string{"alpha.cmd.io", templated["Command"]}, args...))
 	if err != nil {
 		return errors.Wrap(err, "can't run cmdio session")
 	}

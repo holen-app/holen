@@ -5,57 +5,79 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
-	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
-func TestRun(t *testing.T) {
-
-	assert := assert.New(t)
-
-	nameVer := ParseName("jq")
-
-	wd, _ := os.Getwd()
-	logger := &MemLogger{}
-	config := &MemConfig{}
-	system := NewMemSystem()
-	config.Set("strategy.priority", "binary,docker")
-	manifestFinder, err := NewManifestFinder(path.Join(wd, "testdata", "single", "holen"), config, logger, system)
-	assert.Nil(err)
-	assert.NotNil(manifestFinder)
-
-	manifest, err := manifestFinder.Find(nameVer)
-	assert.Nil(err)
-
-	runner := &MemRunner{}
-	downloader := &MemDownloader{}
-	manifest.Runner = runner
-	manifest.Downloader = downloader
-	manifest.System = system
-
-	err = manifest.Run(nameVer, []string{"."})
-	assert.Nil(err)
-
-	localPath := path.Join(system.Getenv("HOME"), ".local/share/holen/bin/jq--1.5")
-	remoteUrl := "https://github.com/stedolan/jq/releases/download/jq-1.5/jq-linux64"
-
-	// check download
-	assert.Contains(downloader.Files, remoteUrl)
-	assert.Contains(downloader.Files[remoteUrl], path.Join(system.Getenv("HOME"), ".local/share/holen/tmp"))
-	assert.Contains(downloader.Files[remoteUrl], "jq--1.5")
-
-	// check run
-	assert.Equal(runner.History[0], fmt.Sprintf("%s .", localPath))
+type TestManifestUtils struct {
+	*MemLogger
+	*MemConfig
+	*MemSystem
+	*MemSourcePather
 }
+
+func newTestManifestFinder(selfPath string) (*TestManifestUtils, *DefaultManifestFinder) {
+	tu := &TestManifestUtils{
+		MemLogger:       &MemLogger{},
+		MemConfig:       NewMemConfig(),
+		MemSystem:       NewMemSystem(),
+		MemSourcePather: &MemSourcePather{},
+	}
+	return tu, &DefaultManifestFinder{
+		Logger:       tu.MemLogger,
+		ConfigGetter: tu.MemConfig,
+		System:       tu.MemSystem,
+		SourcePather: tu.MemSourcePather,
+		SelfPath:     selfPath,
+	}
+}
+
+// func TestRun(t *testing.T) {
+
+// 	assert := assert.New(t)
+
+// 	nameVer := ParseName("jq")
+
+// 	wd, _ := os.Getwd()
+// 	logger := &MemLogger{}
+// 	config := NewMemConfig()
+// 	system := NewMemSystem()
+// 	config.Set(false, "strategy.priority", "binary,docker")
+// 	manifestFinder, err := newTestManifestFinder(path.Join(wd, "testdata", "single", "holen"), config, logger, system)
+// 	assert.Nil(err)
+// 	assert.NotNil(manifestFinder)
+
+// 	manifest, err := manifestFinder.Find(nameVer)
+// 	assert.Nil(err)
+
+// 	runner := &MemRunner{}
+// 	downloader := &MemDownloader{}
+// 	manifest.Runner = runner
+// 	manifest.Downloader = downloader
+// 	manifest.System = system
+
+// 	err = manifest.Run(nameVer, []string{"."})
+// 	assert.Nil(err)
+
+// 	localPath := path.Join(system.Getenv("HOME"), ".local/share/holen/bin/jq--1.5")
+// 	remoteUrl := "https://github.com/stedolan/jq/releases/download/jq-1.5/jq-linux64"
+
+// 	// check download
+// 	assert.Contains(downloader.Files, remoteUrl)
+// 	assert.Contains(downloader.Files[remoteUrl], path.Join(system.Getenv("HOME"), ".local/share/holen/tmp"))
+// 	assert.Contains(downloader.Files[remoteUrl], "jq--1.5")
+
+// 	// check run
+// 	assert.Equal(runner.History[0], fmt.Sprintf("%s .", localPath))
+// }
 
 func TestLoadAllStrategies(t *testing.T) {
 
 	assert := assert.New(t)
 
 	logger := &MemLogger{}
-	config := &MemConfig{}
+	config := NewMemConfig()
 	system := NewMemSystem()
 
 	manifest, err := LoadManifest(ParseName("jq"), "testdata/single/manifests/jq.yaml", config, logger, system)
@@ -98,29 +120,29 @@ func TestStrategyOrder(t *testing.T) {
 		{
 			"jq",
 			func(config *MemConfig) {
-				config.Set("strategy.priority", "binary,docker")
-				config.Unset("strategy.priority")
+				config.Set(false, "strategy.priority", "binary,docker")
+				config.Unset(false, "strategy.priority")
 			},
 			[]string{"docker", "binary", "cmdio"},
 		},
 		{
 			"jq",
 			func(config *MemConfig) {
-				config.Set("strategy.priority", "binary,docker")
+				config.Set(false, "strategy.priority", "binary,docker")
 			},
 			[]string{"binary", "docker", "cmdio"},
 		},
 		{
 			"jq",
 			func(config *MemConfig) {
-				config.Set("strategy.priority", "cmdio")
+				config.Set(false, "strategy.priority", "cmdio")
 			},
 			[]string{"cmdio", "docker", "binary"},
 		},
 		{
 			"jq",
 			func(config *MemConfig) {
-				config.Set("strategy.xpriority", "binary")
+				config.Set(false, "strategy.xpriority", "binary")
 			},
 			[]string{"binary"},
 		},
@@ -128,28 +150,28 @@ func TestStrategyOrder(t *testing.T) {
 		{
 			"jq",
 			func(config *MemConfig) {
-				config.Set("strategy.jq.xpriority", "binary")
+				config.Set(false, "strategy.jq.xpriority", "binary")
 			},
 			[]string{"binary"},
 		},
 		{
 			"hugo",
 			func(config *MemConfig) {
-				config.Set("strategy.jq.xpriority", "binary")
+				config.Set(false, "strategy.jq.xpriority", "binary")
 			},
 			[]string{"docker", "binary", "cmdio"},
 		},
 		{
 			"jq",
 			func(config *MemConfig) {
-				config.Set("strategy.jq.priority", "binary")
+				config.Set(false, "strategy.jq.priority", "binary")
 			},
 			[]string{"binary", "docker", "cmdio"},
 		},
 		{
 			"hugo",
 			func(config *MemConfig) {
-				config.Set("strategy.jq.priority", "binary")
+				config.Set(false, "strategy.jq.priority", "binary")
 			},
 			[]string{"docker", "binary", "cmdio"},
 		},
@@ -157,28 +179,28 @@ func TestStrategyOrder(t *testing.T) {
 		{
 			"jq--1.6",
 			func(config *MemConfig) {
-				config.Set("strategy.jq.1.6.xpriority", "binary")
+				config.Set(false, "strategy.jq.1.6.xpriority", "binary")
 			},
 			[]string{"binary"},
 		},
 		{
 			"jq",
 			func(config *MemConfig) {
-				config.Set("strategy.jq.1.6.xpriority", "binary")
+				config.Set(false, "strategy.jq.1.6.xpriority", "binary")
 			},
 			[]string{"docker", "binary", "cmdio"},
 		},
 		{
 			"jq--1.6",
 			func(config *MemConfig) {
-				config.Set("strategy.jq.1.6.priority", "binary")
+				config.Set(false, "strategy.jq.1.6.priority", "binary")
 			},
 			[]string{"binary", "docker", "cmdio"},
 		},
 		{
 			"jq",
 			func(config *MemConfig) {
-				config.Set("strategy.jq.1.6.priority", "binary")
+				config.Set(false, "strategy.jq.1.6.priority", "binary")
 			},
 			[]string{"docker", "binary", "cmdio"},
 		},
@@ -186,7 +208,7 @@ func TestStrategyOrder(t *testing.T) {
 
 	for _, test := range strategyOrderTests {
 		logger := &MemLogger{}
-		config := &MemConfig{}
+		config := NewMemConfig()
 		system := NewMemSystem()
 
 		manifest, err := LoadManifest(ParseName(test.utility), "testdata/single/manifests/jq.yaml", config, logger, system)
@@ -197,200 +219,117 @@ func TestStrategyOrder(t *testing.T) {
 	}
 }
 
-func TestPaths(t *testing.T) {
+func TestDefaultLinkBinPath(t *testing.T) {
 	assert := assert.New(t)
 
 	wd, _ := os.Getwd()
-	localDir := path.Join(wd, "testdata", "single", "manifests")
 
-	var pathsTests = []struct {
-		adjustment func(*MemConfig, *MemSystem)
-		result     []string
+	var tests = []struct {
+		update   func(*TestManifestUtils)
+		expected string
 	}{
 		{
-			nil,
-			[]string{localDir},
+			func(tu *TestManifestUtils) {
+				tu.MemSystem.Setenv("HOME", "")
+			},
+			"",
 		},
 		{
-			func(config *MemConfig, sys *MemSystem) {
-				sys.Setenv("HLN_PATH", "/path/one:/path/two")
+			func(tu *TestManifestUtils) {
+				tu.MemSystem.Setenv("HOME", "/home/user")
 			},
-			[]string{"/path/one", "/path/two", localDir},
+			"/home/user/bin",
 		},
 		{
-			func(config *MemConfig, sys *MemSystem) {
-				sys.Setenv("HLN_PATH_POST", "/path/one:/path/two")
+			func(tu *TestManifestUtils) {
+				tu.MemSystem.Setenv("HLN_LINK_BIN_PATH", "/path/to/bin")
 			},
-			[]string{"/path/one", "/path/two", localDir},
+			"/path/to/bin",
 		},
 		{
-			func(config *MemConfig, sys *MemSystem) {
-				sys.Setenv("HLN_PATH", "/path/one")
-				sys.Setenv("HLN_PATH_POST", "/path/two")
-				config.Set("manifest.path", "/path/config")
+			func(tu *TestManifestUtils) {
+
+				tu.MemConfig.Set(false, "link.bin_path", "/other/bin/path")
 			},
-			[]string{"/path/one", "/path/config", "/path/two", localDir},
+			"/other/bin/path",
 		},
 	}
 
-	for _, test := range pathsTests {
+	for _, test := range tests {
+		tu, manifestFinder := newTestManifestFinder("")
+		test.update(tu)
+		tu.MemSourcePather.TestPaths = []string{path.Join(wd, "testdata", "single", "manifests")}
 
-		logger := &MemLogger{}
-		config := &MemConfig{}
-		system := NewMemSystem()
-
-		manifestFinder, err := NewManifestFinder(path.Join(wd, "testdata", "single", "holen"), config, logger, system)
-		assert.Nil(err)
-
-		if test.adjustment != nil {
-			test.adjustment(config, system)
-		}
-
-		result := manifestFinder.Paths()
-		assert.Equal(result, test.result)
+		result := manifestFinder.DefaultLinkBinPath()
+		assert.Equal(test.expected, result)
 	}
 }
 
 func TestList(t *testing.T) {
 	assert := assert.New(t)
-	var err error
 
 	wd, _ := os.Getwd()
 
-	logger := &MemLogger{}
-	config := &MemConfig{}
-	system := NewMemSystem()
+	var tests = []struct {
+		name   string
+		desc   bool
+		result []string
+	}{
+		{
+			"",
+			false,
+			[]string{"jq\n"},
+		},
+		{
+			"",
+			true,
+			[]string{"jq: Lightweight and flexible command-line JSON processor\n"},
+		},
+	}
 
-	system.Setenv("HLN_PATH", "/path/one")
-	manifestFinder, err := NewManifestFinder(path.Join(wd, "testdata", "single", "holen"), config, logger, system)
-	assert.Nil(err)
+	for _, test := range tests {
+		tu, manifestFinder := newTestManifestFinder("")
+		tu.MemSourcePather.TestPaths = []string{path.Join(wd, "testdata", "single", "manifests")}
 
-	err = manifestFinder.List()
-	assert.Nil(err)
+		err := manifestFinder.List(test.name, test.desc)
+		assert.Nil(err)
 
-	assert.Equal(system.StdoutMessages, []string{"jq\n"})
+		assert.Equal(tu.MemSystem.StdoutMessages, test.result)
+	}
 }
 
 func TestLink(t *testing.T) {
 	assert := assert.New(t)
-	// var err error
 
 	wd, _ := os.Getwd()
-	base := path.Join(wd, "testdata", "link")
+	manifestsPath := path.Join(wd, "testdata", "link", "manifests")
 
-	var pathsTests = []struct {
-		tempbin func() string
-		link    func(ManifestFinder, string) error
-		links   []string
-		target  string
-		err     error
-		cleanup func()
+	var tests = []struct {
+		link  func(*TestManifestUtils, ManifestFinder, string) error
+		err   error
+		links []string
 	}{
-		// link from one dir
 		{
-			nil,
-			func(finder ManifestFinder, dir string) error {
-				return finder.LinkSingle(path.Join(base, "manifests"), "", dir)
+			func(tu *TestManifestUtils, mf ManifestFinder, binPath string) error {
+				tu.MemSystem.Files[fmt.Sprintf(path.Join(manifestsPath, "util1.yaml"))] = true
+				return mf.LinkSingleUtility("holen", "util1", "", binPath, false)
 			},
-			[]string{"util1", "util1--1.4", "util1--1.5", "util1--1.6", "util2", "util2--2.0"},
-			"../holen",
 			nil,
-			nil,
-		},
-		// pass a different holen path
-		{
-			nil,
-			func(finder ManifestFinder, dir string) error {
-				return finder.LinkSingle(path.Join(base, "manifests"), path.Join(wd, "holen"), dir)
-			},
-			[]string{"util1", "util1--1.4", "util1--1.5", "util1--1.6", "util2", "util2--2.0"},
-			"../../../holen",
-			nil,
-			nil,
-		},
-		// link from two dirs, earlier manifests should mask later ones
-		{
-			nil,
-			func(finder ManifestFinder, dir string) error {
-				holenPath, _ := filepath.Rel(wd, path.Join(base, "holen"))
-				return finder.LinkMultiple([]string{path.Join(base, "manifests2"), path.Join(base, "manifests")}, holenPath, dir)
-			},
-			[]string{"util1", "util1--3.4", "util1--3.5", "util1--3.6", "util2", "util2--2.0"},
-			"../holen",
-			nil,
-			nil,
-		},
-		// if a symlink to something non-holen exists
-		{
-			nil,
-			func(finder ManifestFinder, dir string) error {
-				os.Symlink("/somewhere/else", path.Join(dir, "util1"))
-				return finder.LinkSingle(path.Join(base, "manifests"), "", dir)
-			},
-			[]string{"util1", "util1--1.4", "util1--1.5", "util1--1.6", "util2", "util2--2.0"},
-			"../holen",
-			fmt.Errorf("already exists"),
-			nil,
-		},
-		// link to something with no common parent dir results in absolute paths
-		{
-			func() string {
-				tempdir, _ := ioutil.TempDir("/tmp", "bin")
-				return tempdir
-			},
-			func(finder ManifestFinder, dir string) error {
-				return finder.LinkSingle(path.Join(base, "manifests"), "", dir)
-			},
-			[]string{"util1", "util1--1.4", "util1--1.5", "util1--1.6", "util2", "util2--2.0"},
-			path.Join(base, "holen"),
-			nil,
-			nil,
-		},
-		// link to dir that's got a symlink in its path
-		{
-			func() string {
-				p1 := path.Join(base, "folder", "other")
-				bin := path.Join(base, "bin")
-				os.MkdirAll(p1, 0755)
-
-				os.Symlink("./folder/other", bin)
-
-				return bin
-			},
-			func(finder ManifestFinder, dir string) error {
-				// TODO: figure out if this and the EvalSymlinks in manifest.go
-				// is necessary or not:
-				// p1 := path.Join(base, "folder", "holen")
-				// os.Symlink("../holen", p1)
-				// return finder.LinkSingle(path.Join(base, "manifests"), p1, dir)
-				return finder.LinkSingle(path.Join(base, "manifests"), "", dir)
-			},
-			[]string{"util1", "util1--1.4", "util1--1.5", "util1--1.6", "util2", "util2--2.0"},
-			"../../holen",
-			nil,
-			func() {
-				defer os.RemoveAll(path.Join(base, "folder"))
-			},
+			[]string{"util1", "util1--1.4", "util1--1.5", "util1--1.6"},
 		},
 	}
 
-	for _, test := range pathsTests {
-		var tempdir string
-		if test.tempbin != nil {
-			tempdir = test.tempbin()
-		} else {
-			tempdir, _ = ioutil.TempDir(base, "bin")
-		}
+	for _, test := range tests {
+		tu, manifestFinder := newTestManifestFinder(path.Join(wd, "testdata", "link", "holen"))
+
+		var err error
+		tempdir, _ := ioutil.TempDir("", "link")
 		defer os.RemoveAll(tempdir)
+		tu.MemSystem.Setenv("HLN_LINK_BIN_PATH", tempdir)
+		tu.MemSourcePather.TestPaths = []string{manifestsPath}
 
-		logger := &MemLogger{}
-		config := &MemConfig{}
-		system := NewMemSystem()
+		err = test.link(tu, manifestFinder, tempdir)
 
-		manifestFinder, err := NewManifestFinder(path.Join(base, "holen"), config, logger, system)
-		assert.Nil(err)
-
-		err = test.link(manifestFinder, tempdir)
 		if test.err != nil {
 			assert.NotNil(err)
 			assert.Contains(err.Error(), test.err.Error())
@@ -406,14 +345,160 @@ func TestLink(t *testing.T) {
 
 				target, err := os.Readlink(path.Join(tempdir, info.Name()))
 				assert.Nil(err)
-				assert.Equal(target, test.target)
+				assert.Equal(target, path.Join(wd, "testdata", "link", "holen"))
 			}
 
+			// fmt.Println(fileNames)
 			assert.Equal(fileNames, test.links)
 		}
 
-		if test.cleanup != nil {
-			test.cleanup()
-		}
+		// fmt.Println(tu.MemLogger.Debugs)
 	}
 }
+
+// func TestLink(t *testing.T) {
+// 	assert := assert.New(t)
+// 	// var err error
+
+// 	wd, _ := os.Getwd()
+// 	base := path.Join(wd, "testdata", "link")
+
+// 	var pathsTests = []struct {
+// 		tempbin func() string
+// 		link    func(ManifestFinder, string) error
+// 		links   []string
+// 		target  string
+// 		err     error
+// 		cleanup func()
+// 	}{
+// 		// link from one dir
+// 		{
+// 			nil,
+// 			func(finder ManifestFinder, dir string) error {
+// 				return finder.LinkSingle(path.Join(base, "manifests"), "", dir)
+// 			},
+// 			[]string{"util1", "util1--1.4", "util1--1.5", "util1--1.6", "util2", "util2--2.0"},
+// 			"../holen",
+// 			nil,
+// 			nil,
+// 		},
+// 		// pass a different holen path
+// 		{
+// 			nil,
+// 			func(finder ManifestFinder, dir string) error {
+// 				return finder.LinkSingle(path.Join(base, "manifests"), path.Join(wd, "holen"), dir)
+// 			},
+// 			[]string{"util1", "util1--1.4", "util1--1.5", "util1--1.6", "util2", "util2--2.0"},
+// 			"../../../holen",
+// 			nil,
+// 			nil,
+// 		},
+// 		// link from two dirs, earlier manifests should mask later ones
+// 		{
+// 			nil,
+// 			func(finder ManifestFinder, dir string) error {
+// 				holenPath, _ := filepath.Rel(wd, path.Join(base, "holen"))
+// 				return finder.LinkMultiple([]string{path.Join(base, "manifests2"), path.Join(base, "manifests")}, holenPath, dir)
+// 			},
+// 			[]string{"util1", "util1--3.4", "util1--3.5", "util1--3.6", "util2", "util2--2.0"},
+// 			"../holen",
+// 			nil,
+// 			nil,
+// 		},
+// 		// if a symlink to something non-holen exists
+// 		{
+// 			nil,
+// 			func(finder ManifestFinder, dir string) error {
+// 				os.Symlink("/somewhere/else", path.Join(dir, "util1"))
+// 				return finder.LinkSingle(path.Join(base, "manifests"), "", dir)
+// 			},
+// 			[]string{"util1", "util1--1.4", "util1--1.5", "util1--1.6", "util2", "util2--2.0"},
+// 			"../holen",
+// 			fmt.Errorf("already exists"),
+// 			nil,
+// 		},
+// 		// link to something with no common parent dir results in absolute paths
+// 		{
+// 			func() string {
+// 				tempdir, _ := ioutil.TempDir("/tmp", "bin")
+// 				return tempdir
+// 			},
+// 			func(finder ManifestFinder, dir string) error {
+// 				return finder.LinkSingle(path.Join(base, "manifests"), "", dir)
+// 			},
+// 			[]string{"util1", "util1--1.4", "util1--1.5", "util1--1.6", "util2", "util2--2.0"},
+// 			path.Join(base, "holen"),
+// 			nil,
+// 			nil,
+// 		},
+// 		// link to dir that's got a symlink in its path
+// 		{
+// 			func() string {
+// 				p1 := path.Join(base, "folder", "other")
+// 				bin := path.Join(base, "bin")
+// 				os.MkdirAll(p1, 0755)
+
+// 				os.Symlink("./folder/other", bin)
+
+// 				return bin
+// 			},
+// 			func(finder ManifestFinder, dir string) error {
+// 				// TODO: figure out if this and the EvalSymlinks in manifest.go
+// 				// is necessary or not:
+// 				// p1 := path.Join(base, "folder", "holen")
+// 				// os.Symlink("../holen", p1)
+// 				// return finder.LinkSingle(path.Join(base, "manifests"), p1, dir)
+// 				return finder.LinkSingle(path.Join(base, "manifests"), "", dir)
+// 			},
+// 			[]string{"util1", "util1--1.4", "util1--1.5", "util1--1.6", "util2", "util2--2.0"},
+// 			"../../holen",
+// 			nil,
+// 			func() {
+// 				defer os.RemoveAll(path.Join(base, "folder"))
+// 			},
+// 		},
+// 	}
+
+// 	for _, test := range pathsTests {
+// 		var tempdir string
+// 		if test.tempbin != nil {
+// 			tempdir = test.tempbin()
+// 		} else {
+// 			tempdir, _ = ioutil.TempDir(base, "bin")
+// 		}
+// 		defer os.RemoveAll(tempdir)
+
+// 		logger := &MemLogger{}
+// 		config := NewMemConfig()
+// 		system := NewMemSystem()
+
+// 		manifestFinder, err := newTestManifestFinder(path.Join(base, "holen"), config, logger, system)
+// 		assert.Nil(err)
+
+// 		err = test.link(manifestFinder, tempdir)
+// 		if test.err != nil {
+// 			assert.NotNil(err)
+// 			assert.Contains(err.Error(), test.err.Error())
+// 		} else {
+// 			assert.Nil(err)
+
+// 			files, err := ioutil.ReadDir(tempdir)
+// 			assert.Nil(err)
+
+// 			fileNames := make([]string, len(files))
+// 			for i, info := range files {
+// 				fileNames[i] = info.Name()
+
+// 				target, err := os.Readlink(path.Join(tempdir, info.Name()))
+// 				assert.Nil(err)
+// 				assert.Equal(target, test.target)
+// 			}
+
+// 			assert.Equal(fileNames, test.links)
+// 		}
+
+// 		if test.cleanup != nil {
+// 			test.cleanup()
+// 		}
+// 	}
+// }

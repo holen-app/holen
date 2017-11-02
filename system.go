@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"path"
+	"path/filepath"
 	"runtime"
 	"syscall"
 
@@ -26,6 +26,7 @@ type System interface {
 	Stdoutf(string, ...interface{})
 	UnpackArchive(string, string) error
 	Getenv(string) string
+	DataPath() (string, error)
 }
 
 type DefaultSystem struct{}
@@ -89,6 +90,22 @@ func (ds DefaultSystem) Getenv(key string) string {
 	return os.Getenv(key)
 }
 
+func (ds DefaultSystem) DataPath() (string, error) {
+	var holenPath string
+	if xdgDataHome := ds.Getenv("XDG_DATA_HOME"); len(xdgDataHome) > 0 {
+		holenPath = filepath.Join(xdgDataHome, "holen")
+	} else {
+		var home string
+		if home = ds.Getenv("HOME"); len(home) == 0 {
+			return "", fmt.Errorf("$HOME environment variable not found")
+		}
+		holenPath = filepath.Join(home, ".local", "share", "holen")
+	}
+	os.MkdirAll(holenPath, 0755)
+
+	return holenPath, nil
+}
+
 type Logger interface {
 	Debugf(string, ...interface{})
 	Infof(string, ...interface{})
@@ -148,7 +165,10 @@ func (dd DefaultDownloader) PullDockerImage(image string) error {
 
 type Runner interface {
 	RunCommand(string, []string) error
+	ExecCommand(string, []string) error
+	ExecCommandWithEnv(string, []string, []string) error
 	CheckCommand(string, []string) bool
+	CommandOutputToFile(string, []string, string) error
 }
 
 type DefaultRunner struct {
@@ -162,13 +182,54 @@ func (dr DefaultRunner) CheckCommand(command string, args []string) bool {
 }
 
 func (dr DefaultRunner) RunCommand(command string, args []string) error {
-	dr.Debugf("Running command %s with args %v", command, args)
 
-	// adapted from https://gobyexample.com/execing-processes
-	fullPath, err := exec.LookPath(command)
+	cmd := exec.Command(command, args...)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	return cmd.Run()
+}
+
+func (dr DefaultRunner) ExecCommand(command string, args []string) error {
+	return dr.ExecCommandWithEnv(command, args, make([]string, 0))
+}
+
+func (dr DefaultRunner) ExecCommandWithEnv(command string, args []string, extraEnv []string) error {
+	dr.Debugf("Running command %s with args %v and extra env %v", command, args, extraEnv)
+
+	if runtime.GOOS == "windows" {
+		if err := dr.RunCommand(command, args); err != nil {
+			if eerr, ok := err.(*exec.ExitError); ok {
+				os.Exit(eerr.Sys().(syscall.WaitStatus).ExitStatus())
+			}
+		}
+
+		os.Exit(0)
+		return nil
+	} else {
+		// adapted from https://gobyexample.com/execing-processes
+		fullPath, err := exec.LookPath(command)
+		if err != nil {
+			return err
+		}
+		return syscall.Exec(fullPath, append([]string{filepath.Base(command)}, args...), append(os.Environ(), extraEnv...))
+		// end adapted from
+	}
+}
+
+func (dr DefaultRunner) CommandOutputToFile(command string, args []string, outputFile string) error {
+
+	file, err := os.Create(outputFile)
 	if err != nil {
 		return err
 	}
-	return syscall.Exec(fullPath, append([]string{path.Base(command)}, args...), os.Environ())
-	// end adapted from
+	defer file.Close()
+
+	cmd := exec.Command(command, args...)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = file
+	cmd.Stderr = os.Stderr
+
+	return cmd.Run()
 }

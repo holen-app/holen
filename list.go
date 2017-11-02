@@ -4,38 +4,29 @@ import "fmt"
 
 // ListCommand specifies options for the list subcommand.
 type ListCommand struct {
-	// nothing yet
+	Source string `short:"s" long:"source" description:"Only look for manifests in this source"`
+	Desc   bool   `short:"d" long:"desc" description:"Show descriptions of each utility"`
 }
 
 var listCommand ListCommand
 
 // Listing utilities
 func (x *ListCommand) Execute(args []string) error {
-	system := &DefaultSystem{}
-	conf, err := NewDefaultConfigClient(system)
+	manifestFinder, err := NewManifestFinder(true)
 	if err != nil {
 		return err
 	}
 
-	return runList(listCommand, conf, &LogrusLogger{}, system)
-}
-
-func runList(listCommand ListCommand, conf ConfigGetter, logger Logger, system System) error {
-	selfPath, err := findSelfPath()
-	manifestFinder, err := NewManifestFinder(selfPath, conf, logger, system)
-
-	if err != nil {
-		return err
-	}
-
-	return manifestFinder.List()
+	return manifestFinder.List(listCommand.Source, listCommand.Desc)
 }
 
 func init() {
-	_, err := parser.AddCommand("list",
+	cmd, err := parser.AddCommand("list",
 		"List utilities.",
 		"",
 		&listCommand)
+
+	cmd.Aliases = append(cmd.Aliases, "ls")
 
 	if err != nil {
 		fmt.Println(err)

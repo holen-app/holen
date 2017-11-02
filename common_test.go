@@ -10,31 +10,58 @@ import (
 )
 
 type MemConfig struct {
-	Config map[string]string
+	SystemConfig map[string]string
+	UserConfig   map[string]string
 }
 
 func (mc *MemConfig) Get(key string) (string, error) {
-	if val, ok := mc.Config[key]; ok {
+	if val, ok := mc.UserConfig[key]; ok {
+		return val, nil
+	}
+	if val, ok := mc.SystemConfig[key]; ok {
 		return val, nil
 	}
 	return "", nil
 }
 
-func (mc *MemConfig) Unset(key string) error {
-	if mc.Config == nil {
-		mc.Config = make(map[string]string)
+func (mc *MemConfig) Unset(system bool, key string) error {
+	if system {
+		delete(mc.SystemConfig, key)
+	} else {
+		delete(mc.UserConfig, key)
 	}
-	delete(mc.Config, key)
 
 	return nil
 }
 
-func (mc *MemConfig) Set(key, value string) {
-	if mc.Config == nil {
-		mc.Config = make(map[string]string)
+func (mc *MemConfig) Set(system bool, key, value string) error {
+	if system {
+		mc.SystemConfig[key] = value
+	} else {
+		mc.UserConfig[key] = value
 	}
 
-	mc.Config[key] = value
+	return nil
+}
+
+func (mc *MemConfig) GetAll() (map[string]string, error) {
+	combined := make(map[string]string)
+
+	for k, v := range mc.SystemConfig {
+		combined[k] = v
+	}
+	for k, v := range mc.UserConfig {
+		combined[k] = v
+	}
+
+	return combined, nil
+}
+
+func NewMemConfig() *MemConfig {
+	return &MemConfig{
+		make(map[string]string),
+		make(map[string]string),
+	}
 }
 
 type MemLogger struct {
@@ -56,9 +83,11 @@ func (ml *MemLogger) Warnf(str string, args ...interface{}) {
 }
 
 type MemRunner struct {
-	History       []string
-	FailCheckCmds map[string]bool
-	FailCmds      map[string]error
+	History           []string
+	HistoryEnv        map[string][]string
+	FailCheckCmds     map[string]bool
+	FailCmds          map[string]error
+	CommandOutputCmds map[string]string
 }
 
 func (mr *MemRunner) CheckCommand(command string, args []string) bool {
@@ -74,6 +103,35 @@ func (mr *MemRunner) CheckCommand(command string, args []string) bool {
 func (mr *MemRunner) RunCommand(command string, args []string) error {
 	fullCommand := strings.Join(append([]string{command}, args...), " ")
 	mr.History = append(mr.History, fullCommand)
+
+	e, ok := mr.FailCmds[fullCommand]
+
+	if !ok {
+		return nil
+	} else {
+		return e
+	}
+}
+
+func (mr *MemRunner) ExecCommand(command string, args []string) error {
+	return mr.RunCommand(command, args)
+}
+
+func (mr *MemRunner) ExecCommandWithEnv(command string, args []string, extraEnv []string) error {
+	if mr.HistoryEnv == nil {
+		mr.HistoryEnv = make(map[string][]string)
+	}
+	mr.HistoryEnv[strings.Join(append([]string{command}, args...), " ")] = extraEnv
+	return mr.RunCommand(command, args)
+}
+
+func (mr *MemRunner) CommandOutputToFile(command string, args []string, outputFile string) error {
+	if mr.CommandOutputCmds == nil {
+		mr.CommandOutputCmds = make(map[string]string)
+	}
+
+	fullCommand := strings.Join(append([]string{command}, args...), " ")
+	mr.CommandOutputCmds[fullCommand] = outputFile
 
 	e, ok := mr.FailCmds[fullCommand]
 
@@ -204,6 +262,34 @@ func (ms *MemSystem) Getenv(key string) string {
 	return ""
 }
 
+// TODO: remove the duplication here and in system.go
+func (ms *MemSystem) DataPath() (string, error) {
+	var holenPath string
+	if xdgDataHome := ms.Getenv("XDG_DATA_HOME"); len(xdgDataHome) > 0 {
+		holenPath = filepath.Join(xdgDataHome, "holen")
+	} else {
+		var home string
+		if home = ms.Getenv("HOME"); len(home) == 0 {
+			return "", fmt.Errorf("$HOME environment variable not found")
+		}
+		holenPath = filepath.Join(home, ".local", "share", "holen")
+	}
+	os.MkdirAll(holenPath, 0755)
+
+	return holenPath, nil
+}
+
 func (ms *MemSystem) Setenv(key, value string) {
 	ms.Env[key] = value
+}
+
+type MemSourcePather struct {
+	TestPaths []string
+	Error     error
+	Selected  string
+}
+
+func (msp *MemSourcePather) Paths(name string) ([]string, error) {
+	msp.Selected = name
+	return msp.TestPaths, msp.Error
 }

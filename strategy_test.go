@@ -65,11 +65,12 @@ func TestDockerAllOptions(t *testing.T) {
 	td.Data.MountPwdAs = "/test"
 	td.Data.MountPwd = true
 	td.Data.RunAsUser = true
+	td.Data.PwdWorkdir = true
 	td.Data.Terminal = "always"
 	assert.Nil(td.Run([]string{"first", "second"}))
 
 	wd, _ := os.Getwd()
-	assert.Equal(tu.MemRunner.History[0], fmt.Sprintf("docker run -i -v /var/run/docker.sock:/var/run/docker.sock --pid host --volume %s:/test --volume %s:%s -u 1000:1000 -t --rm testdocker:1.9 first second", wd, wd, wd))
+	assert.Equal(tu.MemRunner.History[0], fmt.Sprintf("docker run -i -v /var/run/docker.sock:/var/run/docker.sock --pid host --volume %s:/test --workdir /test --volume %s:%s --workdir %s -u 1000:1000 -t --rm testdocker:1.9 first second", wd, wd, wd, wd))
 }
 
 func TestDockerNotInstalled(t *testing.T) {
@@ -101,6 +102,50 @@ func TestDockerCommandFailed(t *testing.T) {
 	err := td.Run([]string{"first", "second"})
 	assert.NotNil(err)
 	// assert.Contains(err.Error(), "bad output")
+}
+
+func TestDockerBootstrapScript(t *testing.T) {
+	assert := assert.New(t)
+
+	var tests = []struct {
+		modify func(*TestUtils, *DockerStrategy)
+		err    error
+	}{
+		{
+			func(tu *TestUtils, td *DockerStrategy) {},
+			nil,
+		},
+		{
+			func(tu *TestUtils, td *DockerStrategy) {
+				tu.MemRunner.FailCommand("docker run --rm -i testdocker:1.9 cat /bootstrap", fmt.Errorf("fail"))
+			},
+			fmt.Errorf("fail"),
+		},
+	}
+
+	for _, test := range tests {
+		tu, td := newDockerStrategy()
+		test.modify(tu, td)
+		td.Data.BootstrapScript = "/bootstrap"
+
+		result := td.Run([]string{"first", "second"})
+
+		if test.err != nil {
+			assert.NotNil(result)
+		} else {
+			assert.Nil(result)
+			assert.Contains(tu.MemRunner.CommandOutputCmds, "docker run --rm -i testdocker:1.9 cat /bootstrap")
+
+			// check env vars for actual run
+			var envs [][]string
+			for _, v := range tu.MemRunner.HistoryEnv {
+				envs = append(envs, v)
+			}
+			assert.Equal([]string{"DOCKER_IMAGE=testdocker:1.9"}, envs[0])
+
+			assert.Contains(tu.MemRunner.History[0], "/execute first second")
+		}
+	}
 }
 
 func TestDockerInspect(t *testing.T) {

@@ -26,3 +26,5 @@ _testmain.go
 holen
 holen_*
 manifests/*.yaml
+holen.bootstrap
+desc
