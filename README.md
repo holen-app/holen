@@ -103,6 +103,10 @@ See the [CONTRIBUTING.md](CONTRIBUTING.md) file for details.
 * [github-release](https://github.com/aktau/github-release)
 * [gox](https://github.com/mitchellh/gox)
 
+# Similar Projects
+
+* [Whalebrew](https://github.com/bfirsh/whalebrew) - Makes it really easy to run Docker images as native commands.  Holen has a [manifest for whalebrew](https://github.com/holen-app/manifests/blob/master/manifests/whalebrew.yaml), so you can link it and install all its applications too.
+
 # License
 
 Copyright 2016-2017 Nate Jones Licensed under the Apache License, Version 2.0.
