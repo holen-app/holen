@@ -11,7 +11,7 @@ import (
 	"syscall"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/mholt/archiver"
+	"github.com/justone/archiver"
 	"github.com/pkg/errors"
 )
 
