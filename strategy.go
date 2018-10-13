@@ -273,6 +273,16 @@ func (bs BinaryStrategy) TemplateValues(values map[string]string) (map[string]st
 	return bs.CommonTemplateValues(bs.Data.Version, bs.Data.OSArchData, bs.System, values)
 }
 
+func singleFileArchive(filename string) bool {
+	return (strings.HasSuffix(strings.ToLower(filename), ".bz2") &&
+		!strings.HasSuffix(strings.ToLower(filename), ".tar.bz2") &&
+		!strings.HasSuffix(strings.ToLower(filename), ".tbz2")) ||
+		(strings.HasSuffix(strings.ToLower(filename), ".gz") &&
+			!strings.HasSuffix(strings.ToLower(filename), ".tar.gz") &&
+			!strings.HasSuffix(strings.ToLower(filename), ".tgz"))
+
+}
+
 func (bs BinaryStrategy) Run(args []string) error {
 	templated, err := bs.TemplateValues(map[string]string{
 		"BaseURL":    bs.Data.BaseURL,
@@ -305,6 +315,8 @@ func (bs BinaryStrategy) Run(args []string) error {
 		}
 		defer os.RemoveAll(tempdir)
 		if len(templated["UnpackPath"]) > 0 {
+			unpackPath := templated["UnpackPath"]
+
 			u, err := url.Parse(dlURL)
 			if err != nil {
 				return errors.Wrap(err, "unable to parse url")
@@ -312,7 +324,14 @@ func (bs BinaryStrategy) Run(args []string) error {
 
 			fileName := filepath.Base(u.Path)
 			archPath := filepath.Join(tempdir, fileName)
+
 			unpackedPath := filepath.Join(tempdir, "unpacked")
+			binPath = filepath.Join(unpackedPath, unpackPath)
+			if singleFileArchive(fileName) {
+				os.MkdirAll(unpackedPath, 0755)
+				unpackedPath = filepath.Join(tempdir, "unpacked", unpackPath)
+				binPath = unpackedPath
+			}
 
 			bs.Stderrf("Downloading %s...\n", dlURL)
 			err = bs.DownloadFile(dlURL, archPath)
@@ -325,8 +344,6 @@ func (bs BinaryStrategy) Run(args []string) error {
 				return errors.Wrap(err, "unable to unpack archive")
 			}
 
-			unpackPath := templated["UnpackPath"]
-			binPath = filepath.Join(unpackedPath, unpackPath)
 			sumPath = archPath
 		} else {
 			binPath = filepath.Join(tempdir, binName)
