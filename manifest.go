@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 
+	goversion "github.com/hashicorp/go-version"
 	"github.com/kr/pretty"
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/pkg/errors"
@@ -359,6 +360,7 @@ func LoadManifest(utility NameVer, manifestPath string, conf ConfigGetter, logge
 type ManifestData struct {
 	Name       string
 	Desc       string `yaml:"desc"`
+	MinVersion string `yaml:"min_holen_version"`
 	Strategies map[string]map[interface{}]interface{}
 }
 
@@ -647,6 +649,25 @@ func (m *Manifest) Run(utility NameVer, args []string) error {
 	strategies, err := m.LoadStrategies(utility)
 	if err != nil {
 		return err
+	}
+
+	if len(m.Data.MinVersion) > 0 {
+		if len(version) == 0 {
+			m.Stderrf("version requirement in place, but unknown version being run, skipping check...\n")
+		} else {
+			verHave, err := goversion.NewVersion(version)
+			if err != nil {
+				return err
+			}
+			verNeed, err := goversion.NewVersion(m.Data.MinVersion)
+			if err != nil {
+				return err
+			}
+
+			if verHave.LessThan(verNeed) {
+				return fmt.Errorf("%s is less than %s", version, m.Data.MinVersion)
+			}
+		}
 	}
 
 	for _, strategy := range strategies {

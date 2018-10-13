@@ -52,6 +52,12 @@
 			"revisionTime": "2018-05-18T05:39:59Z"
 		},
 		{
+			"checksumSHA1": "r0pj5dMHCghpaQZ3f1BRGoKiSWw=",
+			"path": "github.com/hashicorp/go-version",
+			"revision": "b5a281d3160aa11950a6182bd9a9dc2cb1e02d50",
+			"revisionTime": "2018-08-24T00:43:55Z"
+		},
+		{
 			"checksumSHA1": "b8ntOW4MlKN7Pik6T9uCYIpPcgI=",
 			"path": "github.com/jessevdk/go-flags",
 			"revision": "4cc2832a6e6d1d3b815e2b9d544b2a4dfb3ce8fa",
