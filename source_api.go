@@ -27,6 +27,7 @@ type Source interface {
 	Info() string
 	Update(string, bool) error
 	Delete(string) error
+	Path(string) string
 }
 
 type RealSourceManager struct {
@@ -64,7 +65,7 @@ func (gs GitSource) fullUrl() string {
 }
 
 func (gs GitSource) Info() string {
-	return fmt.Sprintf("git source: %s", gs.fullUrl())
+	return fmt.Sprintf("type: git, url: %s", gs.fullUrl())
 }
 
 func (gs GitSource) Update(base string, createOnly bool) error {
@@ -87,6 +88,10 @@ func (gs GitSource) Delete(base string) error {
 	sourcePath := filepath.Join(base, gs.Name())
 
 	return os.RemoveAll(sourcePath)
+}
+
+func (gs GitSource) Path(base string) string {
+	return filepath.Join(base, gs.Name())
 }
 
 func (rsm RealSourceManager) Add(system bool, name, spec string) error {
@@ -159,8 +164,13 @@ func (rsm RealSourceManager) List() error {
 		return err
 	}
 
+	manifestsPath, err := rsm.manifestsPath()
+	if err != nil {
+		return err
+	}
+
 	for _, source := range sources {
-		rsm.Stdoutf("%s: %s (%s)\n", source.Name(), source.Spec(), source.Info())
+		rsm.Stdoutf("%s:\n spec: %s\n info: %s\n local path: %s\n", source.Name(), source.Spec(), source.Info(), source.Path(manifestsPath))
 	}
 
 	return nil
