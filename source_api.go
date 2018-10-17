@@ -18,6 +18,7 @@ type SourceManager interface {
 	List() error
 	Update(string) error
 	Delete(bool, string) error
+	Show(string, string) error
 	Bootstrap() error
 }
 
@@ -215,6 +216,29 @@ func (rsm RealSourceManager) Delete(system bool, name string) error {
 	source.Delete(manifestsPath)
 
 	return rsm.Unset(system, fmt.Sprintf("source.%s", name))
+}
+
+func (rsm RealSourceManager) Show(name, field string) error {
+	source, err := rsm.getSource(name)
+	if err != nil {
+		return err
+	}
+
+	if source == nil {
+		return fmt.Errorf("source %s not found", name)
+	}
+
+	if field == "path" {
+		manifestsPath, err := rsm.manifestsPath()
+		if err != nil {
+			return err
+		}
+		rsm.Stdoutf("%s\n", source.Path(manifestsPath))
+	} else if field == "spec" {
+		rsm.Stdoutf("%s\n", source.Spec())
+	}
+
+	return nil
 }
 
 func (rsm RealSourceManager) Paths(name string) ([]string, error) {
