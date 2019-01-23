@@ -531,6 +531,7 @@ func (m *Manifest) loadStrategy(strategyType string, strategyData map[interface{
 		runAsUser, runAsUserOk := strategyData["run_as_user"]
 		pwdWorkdir, pwdWorkdirOk := strategyData["pwd_workdir"]
 		bootstrapScript, bootstrapScriptOk := strategyData["bootstrap_script"]
+		commandRaw, commandOk := strategyData["command"]
 
 		if !imageOk {
 			return dummy, errors.New("At least 'image' needed for docker strategy to work")
@@ -544,6 +545,12 @@ func (m *Manifest) loadStrategy(strategyType string, strategyData map[interface{
 		}
 		if !bootstrapScriptOk {
 			bootstrapScript = ""
+		}
+		command := []string{}
+		if commandOk {
+			for _, cmd := range commandRaw.([]interface{}) {
+				command = append(command, cmd.(string))
+			}
 		}
 
 		return DockerStrategy{
@@ -562,6 +569,7 @@ func (m *Manifest) loadStrategy(strategyType string, strategyData map[interface{
 				RunAsUser:       runAsUserOk && runAsUser.(bool),
 				PwdWorkdir:      pwdWorkdirOk && pwdWorkdir.(bool),
 				BootstrapScript: bootstrapScript.(string),
+				Command:         command,
 				OSArchData:      osArchData,
 			},
 		}, nil

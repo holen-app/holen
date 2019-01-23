@@ -89,6 +89,7 @@ type DockerData struct {
 	RunAsUser       bool                         `yaml:"run_as_user"`
 	PwdWorkdir      bool                         `yaml:"pwd_workdir"`
 	BootstrapScript string                       `yaml:"bootstrap_script"`
+	Command         []string                     `yaml:"command"`
 	OSArchData      map[string]map[string]string `yaml:"os_arch_map"`
 }
 
@@ -219,6 +220,9 @@ func (ds DockerStrategy) GenerateArgs(image string, extraArgs []string) []string
 		}
 	}
 	args = append(args, "--rm", image)
+	if len(ds.Data.Command) > 0 {
+		args = append(args, ds.Data.Command...)
+	}
 	args = append(args, extraArgs...)
 
 	return args
