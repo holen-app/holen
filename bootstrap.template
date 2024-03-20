@@ -20,7 +20,10 @@ make_path($local_dir);
 my $local = "$local_dir/holen";
 
 my $os_bits_to_name = {
-    darwin => { x86_64 => 'holen_darwin_amd64', },
+    darwin => {
+        x86_64 => 'holen_darwin_amd64',
+        arm64 => 'holen_darwin_arm64'
+    },
     linux  => {
         x86_64 => 'holen_linux_amd64',
         armv6l => 'holen_linux_arm'
