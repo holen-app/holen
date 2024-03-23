@@ -26,7 +26,8 @@ my $os_bits_to_name = {
     },
     linux  => {
         x86_64 => 'holen_linux_amd64',
-        armv6l => 'holen_linux_arm'
+        armv6l => 'holen_linux_arm',
+        aarch64 => 'holen_linux_arm64'
     },
 };
 
