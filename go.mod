@@ -11,9 +11,9 @@ require (
 	github.com/kr/pretty v0.2.1
 	github.com/mitchellh/go-homedir v0.0.0-20161203194507-b8bc1bf76747
 	github.com/pkg/errors v0.7.1
-	github.com/stretchr/testify v1.1.4-0.20160615092844-d77da356e56a
+	github.com/stretchr/testify v1.4.0
 	gopkg.in/ini.v1 v1.21.1
-	gopkg.in/yaml.v2 v2.0.0-20160715033755-e4d366fc3c79
+	gopkg.in/yaml.v2 v2.4.0
 )
 
 require (
